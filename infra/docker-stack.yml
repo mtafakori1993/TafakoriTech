@@ -1,0 +1,352 @@
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-commander}
+      POSTGRES_DB: ${POSTGRES_DB:-commander}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-commander} -d ${POSTGRES_DB:-commander}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+      update_config:
+        order: stop-first
+
+  # ── Sentinel (Authentication) ─────────────────────────────────────────────
+  sentinel-redis:
+    image: redis:7.2-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - kong-net
+    volumes:
+      - sentinel-redis-data:/data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 384M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  sentinel:
+    image: ${SENTINEL_IMAGE:-TafakoriTech/sentinel:latest}
+    environment:
+      DATABASE_USER: ${POSTGRES_USER:-commander}
+      DATABASE_HOST: postgres
+      DATABASE_NAME: sentinel
+      DATABASE_PORT: "5432"
+      PORT: "9501"
+      HOST: ${HOST:-0.0.0.0}
+      ENV: "production"
+      PERSONA_URL: ${PERSONA_URL:-http://persona:9502}
+      PULSE_URL: ${PULSE_URL:-http://pulse:9505}
+      REDIS_URL: ${REDIS_URL:-redis://sentinel-redis:6379}
+      SWAGGER_BASE_PATH: "/sentinel"
+      SWAGGER_HOST: ${SWAGGER_HOST:-127.0.0.1:9506}
+    secrets:
+      - postgres_password
+      - source: jwt_secret_v2
+        target: jwt_secret
+      - source: persona_api_key
+        target: persona_api_key
+      - source: pulse_api_key
+        target: pulse_api_key
+      - mfa_encryption_key
+      - recovery_pepper
+      - device_secret
+      - source: altcha_hmac_key
+        target: altcha_hmac_key
+    networks:
+      - kong-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 10
+        window: 120s
+      update_config:
+        parallelism: 1
+        order: start-first
+
+  # ── Persona (IAM) ─────────────────────────────────────────────────────────
+  persona:
+    image: ${PERSONA_IMAGE:-TafakoriTech/persona:latest}
+    environment:
+      DATABASE_USER: ${POSTGRES_USER:-commander}
+      DATABASE_HOST: postgres
+      DATABASE_NAME: persona
+      DATABASE_PORT: "5432"
+      PORT: "9502"
+      HOST: ${HOST:-0.0.0.0}
+      ENV: "production"
+      SWAGGER_BASE_PATH: "/persona"
+      SWAGGER_HOST: ${SWAGGER_HOST:-127.0.0.1:9506}
+    secrets:
+      - postgres_password
+      - source: jwt_secret_v2
+        target: jwt_secret
+      - source: persona_api_key
+        target: api_key
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9502/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 10
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+  # ── Herald (Headless CMS) ────────────────────────────────────────────────
+  herald:
+    image: ${HERALD_IMAGE:-TafakoriTech/herald:latest}
+    environment:
+      DATABASE_USER: ${POSTGRES_USER:-commander}
+      DATABASE_HOST: postgres
+      DATABASE_NAME: herald
+      DATABASE_PORT: "5432"
+      PORT: "9503"
+      HOST: ${HOST:-0.0.0.0}
+      ENV: "production"
+      SWAGGER_BASE_PATH: "/herald"
+      SWAGGER_HOST: ${SWAGGER_HOST:-127.0.0.1:9506}
+    secrets:
+      - postgres_password
+      - source: jwt_secret_v2
+        target: jwt_secret
+      - source: herald_api_key
+        target: api_key
+    networks:
+      - kong-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 10
+        window: 120s
+      update_config:
+        parallelism: 1
+        order: start-first
+
+  # ── Marshal (Project Manager) ────────────────────────────────────────────
+  marshal:
+    image: ${MARSHAL_IMAGE:-TafakoriTech/marshal:latest}
+    environment:
+      DATABASE_USER: ${POSTGRES_USER:-commander}
+      DATABASE_HOST: postgres
+      DATABASE_NAME: marshal
+      DATABASE_PORT: "5432"
+      PORT: "9504"
+      HOST: ${HOST:-0.0.0.0}
+      ENV: "production"
+      SWAGGER_BASE_PATH: "/marshal"
+      SWAGGER_HOST: ${SWAGGER_HOST:-127.0.0.1:9506}
+    secrets:
+      - postgres_password
+      - source: jwt_secret_v2
+        target: jwt_secret
+      - source: marshal_api_key
+        target: api_key
+    networks:
+      - kong-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 10
+        window: 120s
+      update_config:
+        parallelism: 1
+        order: start-first
+
+  # ── Pulse (Notification service) ────────────────────────────────────────
+  pulse:
+    image: ${PULSE_IMAGE:-TafakoriTech/pulse:latest}
+    environment:
+      DATABASE_USER: ${POSTGRES_USER:-commander}
+      DATABASE_HOST: postgres
+      DATABASE_NAME: pulse
+      DATABASE_PORT: "5432"
+      PORT: "9505"
+      HOST: ${HOST:-0.0.0.0}
+      ENV: "production"
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_FROM: ${SMTP_FROM}
+      SMS_PROVIDER: ${SMS_PROVIDER:-smsir}
+      GHASEDAK_LINE_NUMBER: ${GHASEDAK_LINE_NUMBER}
+      GHASEDAK_TEMPLATE_NAME: ${GHASEDAK_TEMPLATE_NAME}
+      GHASEDAK_OTP_PARAM: ${GHASEDAK_OTP_PARAM}
+      SMSIR_LINE_NUMBER: ${SMSIR_LINE_NUMBER}
+      SMSIR_TEMPLATE_ID: ${SMSIR_TEMPLATE_ID}
+      SMSIR_OTP_PARAM: ${SMSIR_OTP_PARAM}
+    secrets:
+      - postgres_password
+      - source: jwt_secret_v2
+        target: jwt_secret
+      - source: pulse_api_key
+        target: pulse_api_key
+      - source: smsir_api_key
+        target: smsir_api_key
+      - source: ghasedak_api_key
+        target: ghasedak_api_key
+      - source: smtp_pass
+        target: smtp_pass
+    networks:
+      - kong-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 10
+        window: 120s
+      update_config:
+        parallelism: 1
+        order: start-first
+
+  # ── Kong API Gateway (DB-less) ───────────────────────────────────────────
+  kong:
+    image: kong:3.7
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:9507"
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "9506:8000"   # Kong proxy  →  http://127.0.0.1:9506
+      - "9507:9507"   # Kong admin  →  http://127.0.0.1:9507
+    configs:
+      - source: kong-config-PLACEHOLDER
+        target: /kong/declarative/kong.yml
+    networks:
+      - kong-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 10
+        window: 60s
+      update_config:
+        parallelism: 1
+        order: start-first
+
+  # ── Swagger UI ────────────────────────────────────────────────────────────
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    environment:
+      URLS: >-
+        [
+          {"url":"http://127.0.0.1:9506/sentinel/openapi.json","name":"Sentinel"},
+          {"url":"http://127.0.0.1:9506/persona/openapi.json","name":"Persona"},
+          {"url":"http://127.0.0.1:9506/marshal/openapi.json","name":"Marshal"},
+          {"url":"http://127.0.0.1:9506/herald/openapi.json","name":"Herald"},
+          {"url":"http://127.0.0.1:9506/pulse/openapi.json","name":"Pulse"}
+        ]
+      SWAGGER_JSON_URL: ""
+    ports:
+      - "9508:8080"
+    networks:
+      - kong-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+
+networks:
+  kong-net:
+    driver: overlay
+    attachable: true
+
+volumes:
+  postgres-data:
+    driver: local
+  sentinel-redis-data:
+    driver: local
+
+secrets:
+  postgres_password:
+    external: true
+  jwt_secret_v2:
+    external: true
+  persona_api_key:
+    external: true
+  herald_api_key:
+    external: true
+  marshal_api_key:
+    external: true
+  mfa_encryption_key:
+    external: true
+  recovery_pepper:
+    external: true
+  device_secret:
+    external: true
+  altcha_hmac_key:
+    external: true
+  pulse_api_key:
+    external: true
+  smsir_api_key:
+    external: true
+  ghasedak_api_key:
+    external: true
+  smtp_pass:
+    external: true
+
+configs:
+  kong-config-PLACEHOLDER:
+    file: ./kong/kong-processed.yml

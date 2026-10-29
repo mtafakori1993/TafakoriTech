@@ -1,0 +1,685 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Persona API",
+    "description": "IAM service — single source of truth for identity and authorization (roles, permissions, users, teams). Integrates with Sentinel for JWT enrichment.",
+    "version": "2.0.0",
+    "contact": {
+      "name": "Tafakori Tech"
+    }
+  },
+  "host": "127.0.0.1:8095",
+  "basePath": "/persona",
+  "schemes": ["http", "https"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "Authorization",
+      "description": "JWT Bearer token. Format: `Bearer <token>`"
+    },
+    "APIKeyAuth": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "X-API-Key",
+      "description": "Service-to-service API key for internal endpoints."
+    }
+  },
+  "security": [{"BearerAuth": []}],
+  "tags": [
+    {"name": "System",      "description": "Health and liveness"},
+    {"name": "Users",       "description": "User identity management"},
+    {"name": "Roles",       "description": "RBAC role management"},
+    {"name": "Permissions", "description": "Fine-grained permission management"},
+    {"name": "Teams",       "description": "Team (group) management"},
+    {"name": "Internal",    "description": "Internal service-to-service endpoints (API key required)"}
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health check",
+        "operationId": "healthCheck",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "schema": {"$ref": "#/definitions/HealthResponse"}
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List users",
+        "operationId": "listUsers",
+        "parameters": [
+          {"name": "limit",  "in": "query", "type": "integer", "description": "Page size (1-100, default 20)"},
+          {"name": "cursor", "in": "query", "type": "string",  "description": "Opaque cursor for next page"},
+          {"name": "search", "in": "query", "type": "string",  "description": "Search by name or email"},
+          {"name": "status", "in": "query", "type": "string",  "enum": ["active","inactive","suspended"]}
+        ],
+        "responses": {
+          "200": {"description": "Paginated user list", "schema": {"$ref": "#/definitions/UserListResponse"}},
+          "500": {"description": "Internal server error", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      },
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create user",
+        "operationId": "createUser",
+        "parameters": [
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/CreateUserRequest"}}
+        ],
+        "responses": {
+          "201": {"description": "User created",  "schema": {"$ref": "#/definitions/UserResponse"}},
+          "400": {"description": "Invalid input", "schema": {"$ref": "#/definitions/ErrorResponse"}},
+          "409": {"description": "Email conflict","schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user by ID",
+        "operationId": "getUser",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "200": {"description": "User found",     "schema": {"$ref": "#/definitions/UserResponse"}},
+          "404": {"description": "User not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user",
+        "operationId": "updateUser",
+        "parameters": [
+          {"name": "id",   "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/UpdateUserRequest"}}
+        ],
+        "responses": {
+          "200": {"description": "User updated",   "schema": {"$ref": "#/definitions/UserResponse"}},
+          "400": {"description": "Invalid input",  "schema": {"$ref": "#/definitions/ErrorResponse"}},
+          "404": {"description": "User not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Delete user (soft delete)",
+        "operationId": "deleteUser",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "204": {"description": "User deleted"},
+          "404": {"description": "User not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/users/{id}/roles": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List user roles",
+        "operationId": "listUserRoles",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "200": {"description": "Role list", "schema": {"$ref": "#/definitions/RoleListResponse"}}
+        }
+      },
+      "post": {
+        "tags": ["Users"],
+        "summary": "Assign role to user",
+        "operationId": "assignRoleToUser",
+        "parameters": [
+          {"name": "id",   "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/AssignRoleRequest"}}
+        ],
+        "responses": {
+          "204": {"description": "Role assigned"},
+          "400": {"description": "Invalid input", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/users/{id}/roles/{roleId}": {
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Remove role from user",
+        "operationId": "removeRoleFromUser",
+        "parameters": [
+          {"name": "id",     "in": "path", "required": true, "type": "string"},
+          {"name": "roleId", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "204": {"description": "Role removed"},
+          "404": {"description": "Not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/users/{id}/teams": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List user teams",
+        "operationId": "listUserTeams",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "200": {"description": "Team list", "schema": {"$ref": "#/definitions/TeamListResponse"}}
+        }
+      }
+    },
+    "/api/v1/roles": {
+      "get": {
+        "tags": ["Roles"],
+        "summary": "List roles",
+        "operationId": "listRoles",
+        "parameters": [
+          {"name": "limit",  "in": "query", "type": "integer"},
+          {"name": "cursor", "in": "query", "type": "string"},
+          {"name": "search", "in": "query", "type": "string"}
+        ],
+        "responses": {
+          "200": {"description": "Paginated role list", "schema": {"$ref": "#/definitions/RolePaginatedResponse"}}
+        }
+      },
+      "post": {
+        "tags": ["Roles"],
+        "summary": "Create role",
+        "operationId": "createRole",
+        "parameters": [
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/CreateRoleRequest"}}
+        ],
+        "responses": {
+          "201": {"description": "Role created", "schema": {"$ref": "#/definitions/RoleResponse"}},
+          "400": {"description": "Invalid input","schema": {"$ref": "#/definitions/ErrorResponse"}},
+          "409": {"description": "Slug conflict","schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/roles/{id}": {
+      "get": {
+        "tags": ["Roles"],
+        "summary": "Get role by ID",
+        "operationId": "getRole",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "200": {"description": "Role found",     "schema": {"$ref": "#/definitions/RoleResponse"}},
+          "404": {"description": "Role not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      },
+      "put": {
+        "tags": ["Roles"],
+        "summary": "Update role",
+        "operationId": "updateRole",
+        "parameters": [
+          {"name": "id",   "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/UpdateRoleRequest"}}
+        ],
+        "responses": {
+          "200": {"description": "Role updated",   "schema": {"$ref": "#/definitions/RoleResponse"}},
+          "404": {"description": "Role not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      },
+      "delete": {
+        "tags": ["Roles"],
+        "summary": "Delete role (soft delete)",
+        "operationId": "deleteRole",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "204": {"description": "Role deleted"},
+          "404": {"description": "Role not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/roles/{id}/permissions": {
+      "get": {
+        "tags": ["Roles"],
+        "summary": "List role permissions",
+        "operationId": "listRolePermissions",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "200": {"description": "Permission list", "schema": {"$ref": "#/definitions/PermissionListResponse"}}
+        }
+      },
+      "post": {
+        "tags": ["Roles"],
+        "summary": "Assign permission to role",
+        "operationId": "assignPermissionToRole",
+        "parameters": [
+          {"name": "id",   "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/AssignPermissionRequest"}}
+        ],
+        "responses": {
+          "204": {"description": "Permission assigned"},
+          "400": {"description": "Invalid input", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/roles/{id}/permissions/{permissionId}": {
+      "delete": {
+        "tags": ["Roles"],
+        "summary": "Remove permission from role",
+        "operationId": "removePermissionFromRole",
+        "parameters": [
+          {"name": "id",           "in": "path", "required": true, "type": "string"},
+          {"name": "permissionId", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "204": {"description": "Permission removed"}
+        }
+      }
+    },
+    "/api/v1/permissions": {
+      "get": {
+        "tags": ["Permissions"],
+        "summary": "List permissions",
+        "operationId": "listPermissions",
+        "parameters": [
+          {"name": "limit",  "in": "query", "type": "integer"},
+          {"name": "cursor", "in": "query", "type": "string"},
+          {"name": "search", "in": "query", "type": "string"}
+        ],
+        "responses": {
+          "200": {"description": "Paginated permission list", "schema": {"$ref": "#/definitions/PermissionPaginatedResponse"}}
+        }
+      },
+      "post": {
+        "tags": ["Permissions"],
+        "summary": "Create permission",
+        "operationId": "createPermission",
+        "parameters": [
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/CreatePermissionRequest"}}
+        ],
+        "responses": {
+          "201": {"description": "Permission created", "schema": {"$ref": "#/definitions/PermissionResponse"}},
+          "400": {"description": "Invalid input",      "schema": {"$ref": "#/definitions/ErrorResponse"}},
+          "409": {"description": "Slug conflict",      "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/permissions/{id}": {
+      "get": {
+        "tags": ["Permissions"],
+        "summary": "Get permission by ID",
+        "operationId": "getPermission",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "200": {"description": "Permission found",     "schema": {"$ref": "#/definitions/PermissionResponse"}},
+          "404": {"description": "Permission not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      },
+      "put": {
+        "tags": ["Permissions"],
+        "summary": "Update permission",
+        "operationId": "updatePermission",
+        "parameters": [
+          {"name": "id",   "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/UpdatePermissionRequest"}}
+        ],
+        "responses": {
+          "200": {"description": "Permission updated",   "schema": {"$ref": "#/definitions/PermissionResponse"}},
+          "404": {"description": "Permission not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      },
+      "delete": {
+        "tags": ["Permissions"],
+        "summary": "Delete permission (soft delete)",
+        "operationId": "deletePermission",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "204": {"description": "Permission deleted"}
+        }
+      }
+    },
+    "/api/v1/teams": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "List teams",
+        "operationId": "listTeams",
+        "parameters": [
+          {"name": "limit",  "in": "query", "type": "integer"},
+          {"name": "cursor", "in": "query", "type": "string"},
+          {"name": "search", "in": "query", "type": "string"}
+        ],
+        "responses": {
+          "200": {"description": "Paginated team list", "schema": {"$ref": "#/definitions/TeamPaginatedResponse"}}
+        }
+      },
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Create team",
+        "operationId": "createTeam",
+        "parameters": [
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/CreateTeamRequest"}}
+        ],
+        "responses": {
+          "201": {"description": "Team created", "schema": {"$ref": "#/definitions/TeamResponse"}},
+          "400": {"description": "Invalid input","schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/teams/{id}": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Get team by ID",
+        "operationId": "getTeam",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "200": {"description": "Team found",     "schema": {"$ref": "#/definitions/TeamResponse"}},
+          "404": {"description": "Team not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      },
+      "put": {
+        "tags": ["Teams"],
+        "summary": "Update team",
+        "operationId": "updateTeam",
+        "parameters": [
+          {"name": "id",   "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/UpdateTeamRequest"}}
+        ],
+        "responses": {
+          "200": {"description": "Team updated",   "schema": {"$ref": "#/definitions/TeamResponse"}},
+          "404": {"description": "Team not found", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      },
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Delete team (soft delete)",
+        "operationId": "deleteTeam",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "204": {"description": "Team deleted"}
+        }
+      }
+    },
+    "/api/v1/teams/{id}/users": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "List team members",
+        "operationId": "listTeamUsers",
+        "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+        "responses": {
+          "200": {"description": "User list", "schema": {"$ref": "#/definitions/UserListResponse"}}
+        }
+      },
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Add user to team",
+        "operationId": "addUserToTeam",
+        "parameters": [
+          {"name": "id",   "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "required": true, "schema": {"$ref": "#/definitions/AddTeamUserRequest"}}
+        ],
+        "responses": {
+          "204": {"description": "User added to team"},
+          "400": {"description": "Invalid input", "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/api/v1/teams/{id}/users/{userId}": {
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Remove user from team",
+        "operationId": "removeUserFromTeam",
+        "parameters": [
+          {"name": "id",     "in": "path", "required": true, "type": "string"},
+          {"name": "userId", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "204": {"description": "User removed from team"}
+        }
+      }
+    },
+    "/internal/users/by-email": {
+      "get": {
+        "tags": ["Internal"],
+        "summary": "Look up active user by email or phone",
+        "operationId": "getUserByIdentifier",
+        "security": [{"APIKeyAuth": []}],
+        "parameters": [
+          {"name": "identifier", "in": "query", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "200": {"description": "Active user found", "schema": {"$ref": "#/definitions/UserResponse"}},
+          "400": {"description": "Missing identifier","schema": {"$ref": "#/definitions/ErrorResponse"}},
+          "401": {"description": "Unauthorized",      "schema": {"$ref": "#/definitions/ErrorResponse"}},
+          "403": {"description": "User is inactive",  "schema": {"$ref": "#/definitions/ErrorResponse"}},
+          "404": {"description": "User not found",    "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    },
+    "/internal/users/{id}/context": {
+      "get": {
+        "tags": ["Internal"],
+        "summary": "Get user authorization context",
+        "description": "Returns the complete RBAC snapshot: roles, permissions, status, authz_version. Called by Sentinel during JWT issuance. An incremented authz_version signals that any cached token is stale.",
+        "operationId": "getUserContext",
+        "security": [{"APIKeyAuth": []}],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "type": "string", "description": "User UUID"}
+        ],
+        "responses": {
+          "200": {"description": "Authorization context", "schema": {"$ref": "#/definitions/UserContextResponse"}},
+          "401": {"description": "Unauthorized",          "schema": {"$ref": "#/definitions/ErrorResponse"}},
+          "404": {"description": "User not found",        "schema": {"$ref": "#/definitions/ErrorResponse"}}
+        }
+      }
+    }
+  },
+  "definitions": {
+    "HealthResponse": {
+      "type": "object",
+      "properties": {
+        "status":  {"type": "string", "example": "ok"},
+        "service": {"type": "string", "example": "persona"}
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": {"type": "string"}
+      }
+    },
+    "UserResponse": {
+      "type": "object",
+      "properties": {
+        "id":            {"type": "string", "format": "uuid"},
+        "first_name":    {"type": "string"},
+        "last_name":     {"type": "string"},
+        "email":         {"type": "string", "format": "email"},
+        "phone":         {"type": "string"},
+        "avatar_url":    {"type": "string"},
+        "status":        {"type": "string", "enum": ["active","inactive","suspended"]},
+        "authz_version": {"type": "integer", "description": "Monotonically increasing; increments on RBAC changes."},
+        "created_at":    {"type": "string", "format": "date-time"},
+        "updated_at":    {"type": "string", "format": "date-time"}
+      }
+    },
+    "UserListResponse": {
+      "type": "object",
+      "properties": {
+        "items":       {"type": "array", "items": {"$ref": "#/definitions/UserResponse"}},
+        "next_cursor": {"type": "string"},
+        "total":       {"type": "integer"}
+      }
+    },
+    "CreateUserRequest": {
+      "type": "object",
+      "required": ["first_name","last_name","email"],
+      "properties": {
+        "first_name": {"type": "string"},
+        "last_name":  {"type": "string"},
+        "email":      {"type": "string", "format": "email"},
+        "phone":      {"type": "string"},
+        "avatar_url": {"type": "string"},
+        "status":     {"type": "string", "enum": ["active","inactive","suspended"], "default": "active"}
+      }
+    },
+    "UpdateUserRequest": {
+      "type": "object",
+      "properties": {
+        "first_name": {"type": "string"},
+        "last_name":  {"type": "string"},
+        "phone":      {"type": "string"},
+        "avatar_url": {"type": "string"},
+        "status":     {"type": "string", "enum": ["active","inactive","suspended"]}
+      }
+    },
+    "AssignRoleRequest": {
+      "type": "object",
+      "required": ["role_id"],
+      "properties": {
+        "role_id": {"type": "string", "format": "uuid"}
+      }
+    },
+    "RoleResponse": {
+      "type": "object",
+      "properties": {
+        "id":          {"type": "string", "format": "uuid"},
+        "name":        {"type": "string"},
+        "slug":        {"type": "string"},
+        "description": {"type": "string"},
+        "created_at":  {"type": "string", "format": "date-time"},
+        "updated_at":  {"type": "string", "format": "date-time"}
+      }
+    },
+    "RoleListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {"type": "array", "items": {"$ref": "#/definitions/RoleResponse"}}
+      }
+    },
+    "RolePaginatedResponse": {
+      "type": "object",
+      "properties": {
+        "items":       {"type": "array", "items": {"$ref": "#/definitions/RoleResponse"}},
+        "next_cursor": {"type": "string"},
+        "total":       {"type": "integer"}
+      }
+    },
+    "CreateRoleRequest": {
+      "type": "object",
+      "required": ["name","slug"],
+      "properties": {
+        "name":        {"type": "string"},
+        "slug":        {"type": "string"},
+        "description": {"type": "string"}
+      }
+    },
+    "UpdateRoleRequest": {
+      "type": "object",
+      "properties": {
+        "name":        {"type": "string"},
+        "description": {"type": "string"}
+      }
+    },
+    "AssignPermissionRequest": {
+      "type": "object",
+      "required": ["permission_id"],
+      "properties": {
+        "permission_id": {"type": "string", "format": "uuid"}
+      }
+    },
+    "PermissionResponse": {
+      "type": "object",
+      "properties": {
+        "id":          {"type": "string", "format": "uuid"},
+        "name":        {"type": "string"},
+        "slug":        {"type": "string"},
+        "resource":    {"type": "string"},
+        "action":      {"type": "string"},
+        "description": {"type": "string"},
+        "created_at":  {"type": "string", "format": "date-time"},
+        "updated_at":  {"type": "string", "format": "date-time"}
+      }
+    },
+    "PermissionListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {"type": "array", "items": {"$ref": "#/definitions/PermissionResponse"}}
+      }
+    },
+    "PermissionPaginatedResponse": {
+      "type": "object",
+      "properties": {
+        "items":       {"type": "array", "items": {"$ref": "#/definitions/PermissionResponse"}},
+        "next_cursor": {"type": "string"},
+        "total":       {"type": "integer"}
+      }
+    },
+    "CreatePermissionRequest": {
+      "type": "object",
+      "required": ["name","slug","resource","action"],
+      "properties": {
+        "name":        {"type": "string", "example": "Read Logs"},
+        "slug":        {"type": "string", "example": "logs.read"},
+        "resource":    {"type": "string", "example": "logs"},
+        "action":      {"type": "string", "enum": ["read","write","delete","manage","publish","create","update"]},
+        "description": {"type": "string"}
+      }
+    },
+    "UpdatePermissionRequest": {
+      "type": "object",
+      "properties": {
+        "name":        {"type": "string"},
+        "description": {"type": "string"}
+      }
+    },
+    "TeamResponse": {
+      "type": "object",
+      "properties": {
+        "id":          {"type": "string", "format": "uuid"},
+        "name":        {"type": "string"},
+        "description": {"type": "string"},
+        "created_at":  {"type": "string", "format": "date-time"},
+        "updated_at":  {"type": "string", "format": "date-time"}
+      }
+    },
+    "TeamListResponse": {
+      "type": "object",
+      "properties": {
+        "items": {"type": "array", "items": {"$ref": "#/definitions/TeamResponse"}}
+      }
+    },
+    "TeamPaginatedResponse": {
+      "type": "object",
+      "properties": {
+        "items":       {"type": "array", "items": {"$ref": "#/definitions/TeamResponse"}},
+        "next_cursor": {"type": "string"},
+        "total":       {"type": "integer"}
+      }
+    },
+    "CreateTeamRequest": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name":        {"type": "string"},
+        "description": {"type": "string"}
+      }
+    },
+    "UpdateTeamRequest": {
+      "type": "object",
+      "properties": {
+        "name":        {"type": "string"},
+        "description": {"type": "string"}
+      }
+    },
+    "AddTeamUserRequest": {
+      "type": "object",
+      "required": ["user_id"],
+      "properties": {
+        "user_id": {"type": "string", "format": "uuid"}
+      }
+    },
+    "UserContextResponse": {
+      "type": "object",
+      "description": "Authorization snapshot for JWT enrichment.",
+      "properties": {
+        "user_id":       {"type": "string", "format": "uuid"},
+        "roles":         {"type": "array", "items": {"type": "string"}, "description": "Assigned role slugs"},
+        "permissions":   {"type": "array", "items": {"type": "string"}, "description": "Effective permission slugs across all roles"},
+        "status":        {"type": "string", "enum": ["active","inactive","suspended"]},
+        "authz_version": {"type": "integer", "description": "Monotonically increasing; increment triggers JWT cache invalidation"}
+      }
+    }
+  }
+}

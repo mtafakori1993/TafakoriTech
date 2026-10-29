@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Elasticsearch configuration — TafakoriTech observability node
+# Mounted at /usr/share/elasticsearch/config/elasticsearch.yml
+# ─────────────────────────────────────────────────────────────────────────────
+
+cluster.name: "tafakoritech-logs"
+node.name: "es-node-1"
+
+# Bind to all interfaces inside the container
+network.host: 0.0.0.0
+http.port: 9200
+transport.port: 9300
+
+# Single-node mode — remove this line and configure cluster.initial_master_nodes
+# when scaling to a multi-node cluster
+discovery.type: single-node
+
+# Lock the JVM heap in RAM to prevent OS swapping
+bootstrap.memory_lock: true
+
+# ── Security ─────────────────────────────────────────────────────────────────
+# Password is set via ELASTIC_PASSWORD_FILE Docker secret in the stack
+xpack.security.enabled: true
+xpack.security.http.ssl.enabled: false       # TLS handled by Kong / load balancer
+xpack.security.transport.ssl.enabled: false  # Safe for single-node; enable for multi-node
+
+# ── Index auto-creation ───────────────────────────────────────────────────────
+# Allow our daily tafakoritech-* indices plus internal ES system indices
+action.auto_create_index: ".monitoring*,.watches,.triggered_watches,.watcher-history*,.ml*,tafakoritech*"
+
+# ── Performance ───────────────────────────────────────────────────────────────
+indices.memory.index_buffer_size: 20%
+thread_pool.write.queue_size: 1000
+
+# ── Monitoring ────────────────────────────────────────────────────────────────
+xpack.monitoring.collection.enabled: true
+
+# ── Future multi-node clustering (uncomment and adjust) ──────────────────────
+# discovery.seed_hosts: ["es-node-2", "es-node-3"]
+# cluster.initial_master_nodes: ["es-node-1", "es-node-2", "es-node-3"]
+# node.roles: ["master", "data", "ingest"]

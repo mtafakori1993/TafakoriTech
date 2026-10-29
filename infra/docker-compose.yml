@@ -1,0 +1,152 @@
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────
+  postgres:
+    container_name: TafakoriTech-postgres
+    image: postgres:16
+    env_file: .env
+    ports:
+      - "9900:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - kong-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Persona (Go / Gin — IAM Service) ─────────────────────────────────────
+  persona:
+    container_name: TafakoriTech-persona
+    image: TafakoriTech/persona:latest
+    build:
+      context: ..
+      dockerfile: persona/Dockerfile
+    env_file: .env
+    ports:
+      - "9502:9502"
+    networks:
+      - kong-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Sentinel (Go / Gin — Authentication) ────────────────────────────────
+  sentinel:
+    container_name: TafakoriTech-sentinel
+    image: TafakoriTech/sentinel:latest
+    build:
+      context: ..
+      dockerfile: sentinel/Dockerfile
+    env_file: .env
+    ports:
+      - "9501:9501"
+    networks:
+      - kong-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      persona:
+        condition: service_started
+    restart: unless-stopped
+
+  # ── Herald (Go / Gin — Headless CMS) ────────────────────────────────────
+  herald:
+    container_name: TafakoriTech-herald
+    image: TafakoriTech/herald:latest
+    build:
+      context: ..
+      dockerfile: herald/Dockerfile
+    env_file: .env
+    ports:
+      - "9503:9503"
+    networks:
+      - kong-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Marshal (Go / Gin) ───────────────────────────────────────────────────
+  marshal:
+    container_name: TafakoriTech-marshal
+    image: TafakoriTech/marshal:latest
+    build:
+      context: ..
+      dockerfile: marshal/Dockerfile
+    env_file: .env
+    ports:
+      - "9504:9504"
+    networks:
+      - kong-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Pulse (Notification service) ────────────────────────────────────────
+  pulse:
+    container_name: TafakoriTech-pulse
+    image: TafakoriTech/pulse:latest
+    build:
+      context: ..
+      dockerfile: pulse/Dockerfile
+    env_file: .env
+    ports:
+      - "9505:9505"
+    networks:
+      - kong-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Kong API gateway (DB-less) ───────────────────────────────────────────
+  kong:
+    container_name: TafakoriTech-kong
+    image: kong:3.7
+    env_file: .env
+    ports:
+      - "9506:8000"   # Kong proxy  →  http://127.0.0.1:9506
+      - "9507:9507"   # Kong admin  →  http://127.0.0.1:9507
+    volumes:
+      - ./kong/kong.yml:/kong/declarative/kong.yml:ro
+    networks:
+      - kong-net
+    depends_on:
+      - marshal
+      - herald
+      - swagger-ui
+    restart: unless-stopped
+
+  # ── Swagger UI (served through Kong at /swagger) ─────────────────────────
+  swagger-ui:
+    container_name: TafakoriTech-swagger-ui
+    image: swaggerapi/swagger-ui
+    environment:
+      URLS: >-
+        [
+          {"url":"http://127.0.0.1:9506/sentinel/openapi.json","name":"Sentinel"},
+          {"url":"http://127.0.0.1:9506/persona/openapi.json","name":"Persona"},
+          {"url":"http://127.0.0.1:9506/marshal/openapi.json","name":"Marshal"},
+          {"url":"http://127.0.0.1:9506/herald/openapi.json","name":"Herald"},
+          {"url":"http://127.0.0.1:9506/pulse/openapi.json","name":"Pulse"}
+        ]
+      SWAGGER_JSON_URL: ""
+    ports:
+      - "9508:8080"
+    networks:
+      - kong-net
+    restart: unless-stopped
+
+networks:
+  kong-net:
+    driver: bridge
+
+volumes:
+  postgres-data:

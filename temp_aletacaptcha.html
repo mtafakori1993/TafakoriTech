@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ALTCHA Solver</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: monospace;
+      padding: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+
+    #token {
+      margin-top: 15px;
+      height: 140px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>ALTCHA Solver</h2>
+
+<textarea id="input" rows="10">
+{
+  "algorithm": "SHA-256",
+  "challenge": "f3b8cd404ff6c4951eed278545fb927b922a7b6c5decc655359cea8f26ac3011",
+  "maxNumber": 50000,
+  "salt": "2f80dfeb56648fb38bc43213?expires=1781531767&",
+  "signature": "ca9779553e8076bafbf6f98550dde0d7f1f95ad4f63ad7314b9592cc2c772f08"
+}
+</textarea>
+
+<br>
+
+<button onclick="solve()">Solve ALTCHA</button>
+
+<div id="status"></div>
+
+<h3>Base64 Token (X-Captcha-Token)</h3>
+
+<textarea id="token" readonly></textarea>
+
+<script>
+
+async function sha256(str) {
+    const data = new TextEncoder().encode(str);
+
+    const hash = await crypto.subtle.digest(
+        "SHA-256",
+        data
+    );
+
+    return [...new Uint8Array(hash)]
+        .map(x => x.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+function toBase64(obj) {
+    return btoa(
+        unescape(
+            encodeURIComponent(
+                JSON.stringify(obj)
+            )
+        )
+    );
+}
+
+async function solve() {
+
+    const status = document.getElementById("status");
+    const tokenBox = document.getElementById("token");
+
+    tokenBox.value = "";
+
+    let cfg;
+
+    try {
+
+        cfg = JSON.parse(
+            document.getElementById("input").value
+        );
+
+    } catch {
+
+        status.innerText = "Invalid JSON";
+        return;
+    }
+
+    const challenge = cfg.challenge;
+    const salt = cfg.salt;
+    const max = cfg.maxNumber;
+    const algorithm = cfg.algorithm;
+    const signature = cfg.signature;
+
+    status.innerText = "Solving...";
+
+    for(let i=0;i<=max;i++) {
+
+        if(i % 1000 === 0) {
+
+            status.innerText =
+                "Trying " + i + " / " + max;
+
+            await new Promise(r=>setTimeout(r,0));
+        }
+
+        const hash = await sha256(
+            salt + i
+        );
+
+        if(hash === challenge) {
+
+            const solution = {
+
+                algorithm,
+                challenge,
+                number: i,
+                salt,
+                signature
+            };
+
+            const token = toBase64(solution);
+
+            status.innerHTML =
+                "Solved ✅<br>" +
+                "Number: " + i;
+
+            tokenBox.value = token;
+
+            console.log("Solution:", solution);
+            console.log("Token:", token);
+
+            return;
+        }
+    }
+
+    status.innerText =
+        "No solution found";
+}
+
+</script>
+
+</body>
+</html>

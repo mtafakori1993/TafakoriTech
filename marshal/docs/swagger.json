@@ -1,0 +1,350 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "Manages projects for the Commander app.",
+    "title": "Marshal API",
+    "contact": {
+      "name": "Tafakori Tech"
+    },
+    "version": "1.0"
+  },
+  "host": "127.0.0.1:8090",
+  "basePath": "/",
+  "paths": {
+    "/api/v1/projects": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "projects"
+        ],
+        "summary": "List all projects",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/model.Project"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create a project",
+        "parameters": [
+          {
+            "description": "Project data",
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/model.CreateProjectRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "schema": {
+              "$ref": "#/definitions/model.Project"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}": {
+      "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "projects"
+        ],
+        "summary": "Get a project by ID",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "Project ID",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/model.Project"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "projects"
+        ],
+        "summary": "Update a project",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "Project ID",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Updated project data",
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/model.UpdateProjectRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/model.Project"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": [
+          "projects"
+        ],
+        "summary": "Delete a project",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "Project ID",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "model.CreateProjectRequest": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "color": {
+          "type": "string",
+          "example": "#6750A4"
+        },
+        "description": {
+          "type": "string",
+          "example": "A short description"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "minLength": 1,
+          "example": "My Project"
+        }
+      }
+    },
+    "model.Project": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "example": "#6750A4"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "example": "A short description"
+        },
+        "id": {
+          "type": "integer",
+          "example": 1
+        },
+        "name": {
+          "type": "string",
+          "example": "My Project"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      }
+    },
+    "model.UpdateProjectRequest": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "color": {
+          "type": "string",
+          "example": "#FF6B6B"
+        },
+        "description": {
+          "type": "string",
+          "example": "Updated description"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "minLength": 1,
+          "example": "Updated Name"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "Authorization",
+      "description": "JWT Bearer token. Format: Bearer <token>"
+    }
+  }
+}

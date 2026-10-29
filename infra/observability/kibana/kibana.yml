@@ -1,0 +1,40 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Kibana configuration — TafakoriTech observability
+# ─────────────────────────────────────────────────────────────────────────────
+
+server.name: tafakoritech-kibana
+server.host: "0.0.0.0"
+server.port: 5601
+
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+elasticsearch.username: "elastic"
+# Password is injected as ELASTICSEARCH_PASSWORD env var via the stack entrypoint
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  root:
+    level: warn
+  appenders:
+    default:
+      type: console
+      layout:
+        type: json
+
+# ── Telemetry & usage data ────────────────────────────────────────────────────
+telemetry.enabled: false
+newsfeed.enabled: false
+
+# ── Security ──────────────────────────────────────────────────────────────────
+# CSP allows embedding dashboards in iframes from same origin
+csp.strict: false
+
+# ── Performance ───────────────────────────────────────────────────────────────
+# Increase timeout for heavy aggregation queries
+elasticsearch.requestTimeout: 60000
+elasticsearch.shardTimeout: 30000
+
+# ── Feature flags ─────────────────────────────────────────────────────────────
+# Disable features not in use to reduce memory footprint
+xpack.fleet.enabled: false
+xpack.apm.enabled: false
+xpack.maps.enabled: false

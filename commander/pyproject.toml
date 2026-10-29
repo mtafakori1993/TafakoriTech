@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "commander"
+version = "0.1.0"
+description = "HTTP API to run Claude Code on a server in any path, with live streaming reports."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Mohammad Tafakori" }]
+keywords = ["claude", "claude-code", "fastapi", "api", "sse", "automation"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Framework :: FastAPI",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "qrcode>=7.4",
+    "pyte>=0.8",
+]
+
+[project.scripts]
+commander = "commander.__main__:main"
+
+[tool.setuptools]
+packages = ["commander"]

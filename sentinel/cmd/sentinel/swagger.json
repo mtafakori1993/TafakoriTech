@@ -1,0 +1,663 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Sentinel API",
+    "description": "Authentication and session management service — OTP login, JWT issuance, refresh-token rotation, MFA/TOTP, session management, and account administration for the TafakoriTech platform.",
+    "contact": {
+      "name": "Tafakori Tech"
+    },
+    "version": "1.0"
+  },
+  "host": "127.0.0.1:8094",
+  "basePath": "/",
+  "schemes": ["http"],
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "Authorization",
+      "description": "JWT access token. Format: `Bearer <api_key>`"
+    }
+  },
+  "tags": [
+    { "name": "auth",     "description": "OTP login and token lifecycle" },
+    { "name": "captcha",  "description": "Altcha self-hosted proof-of-work CAPTCHA" },
+    { "name": "sessions", "description": "Session listing and revocation" },
+    { "name": "mfa",      "description": "TOTP enrollment and challenge" },
+    { "name": "admin",    "description": "Account administration (super_admin role required)" }
+  ],
+  "paths": {
+
+    "/altcha/challenge": {
+      "get": {
+        "tags": ["captcha"],
+        "summary": "Get an Altcha proof-of-work challenge",
+        "description": "Issues a new Altcha challenge. The client solves the proof-of-work (via altcha.js), base64-encodes the solution JSON, and sends it in the `X-Captcha-Token` header on subsequent OTP requests. Returns 503 if `ALTCHA_HMAC_KEY` is not configured.",
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "Altcha challenge",
+            "schema": { "$ref": "#/definitions/AltchaChallenge" }
+          },
+          "503": { "description": "Altcha not configured on this server", "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/otp/request": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Request a login OTP",
+        "description": "Generates a 6-digit OTP for the given identifier and dispatches it via SMS/email. Protected by CAPTCHA (X-Captcha-Token header) and rate limiting.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Captcha-Token",
+            "type": "string",
+            "description": "Base64-encoded Altcha proof-of-work solution. Obtain a challenge from GET /altcha/challenge, solve it client-side (altcha.js), then send the base64-encoded solution here. Required when ALTCHA_HMAC_KEY is configured."
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/OTPRequestBody" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OTP dispatched",
+            "schema": { "$ref": "#/definitions/MessageResponse" }
+          },
+          "400": { "description": "Missing or invalid request body", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "401": { "description": "User not registered",             "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "403": { "description": "Account locked or inactive / CAPTCHA failed", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "429": { "description": "Rate limit exceeded",             "schema": { "$ref": "#/definitions/RateLimitResponse" } },
+          "500": { "description": "Internal error",                  "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/otp/verify": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Verify OTP and receive a token pair",
+        "description": "Validates the submitted OTP. On success issues an access token (api_key) and refresh token (refresh_key). Increments failure counter; auto-locks account after FAIL_LOCK_AT consecutive failures.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Captcha-Token",
+            "type": "string",
+            "description": "CAPTCHA token. Required when CAPTCHA_PROVIDER != off."
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/OTPVerifyBody" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token pair issued",
+            "schema": { "$ref": "#/definitions/TokenPair" }
+          },
+          "400": { "description": "Missing or invalid request body",                    "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "401": { "description": "Invalid or expired OTP",                              "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "403": { "description": "Account locked / CAPTCHA failed",                    "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "429": { "description": "Rate limit exceeded",                                "schema": { "$ref": "#/definitions/RateLimitResponse" } },
+          "500": { "description": "Internal error",                                     "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/refresh": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Rotate refresh token",
+        "description": "Single-use refresh-token rotation. Presenting an already-rotated token triggers reuse detection: the entire session chain is force-revoked. Returns a new token pair.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/RefreshBody" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New token pair",
+            "schema": { "$ref": "#/definitions/TokenPair" }
+          },
+          "400": { "description": "Missing or invalid request body",         "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "401": { "description": "Invalid / expired / already-rotated key", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "403": { "description": "Account locked",                          "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "429": { "description": "Rate limit exceeded",                     "schema": { "$ref": "#/definitions/RateLimitResponse" } },
+          "500": { "description": "Internal error",                          "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/logout": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Logout — revoke session",
+        "description": "Revokes the session identified by the refresh token's sid claim and immediately adds the session UUID to the JWT blacklist so in-flight access tokens are rejected. Accepts expired tokens (always succeeds idempotently).",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/LogoutBody" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Logged out",
+            "schema": { "$ref": "#/definitions/MessageResponse" }
+          },
+          "400": { "description": "Missing or invalid request body", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "429": { "description": "Rate limit exceeded",             "schema": { "$ref": "#/definitions/RateLimitResponse" } }
+        }
+      }
+    },
+
+    "/sessions": {
+      "get": {
+        "tags": ["sessions"],
+        "summary": "List active sessions",
+        "description": "Returns all non-revoked, non-expired sessions for the authenticated user. Ordered by last_active descending.",
+        "produces": ["application/json"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "type": "integer",
+            "default": 1,
+            "description": "Page number (1-based)"
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "type": "integer",
+            "default": 20,
+            "description": "Results per page (max 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session list",
+            "schema": { "$ref": "#/definitions/SessionListResponse" }
+          },
+          "401": { "description": "Missing or invalid access token / session revoked", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "500": { "description": "Internal error",                                    "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/sessions/{session_uuid}": {
+      "delete": {
+        "tags": ["sessions"],
+        "summary": "Revoke a specific session",
+        "description": "Revokes the session and all its refresh tokens. Also blacklists the session UUID so any live access token bearing it is immediately rejected. Returns 404 if the session does not belong to the caller.",
+        "produces": ["application/json"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_uuid",
+            "type": "string",
+            "required": true,
+            "description": "UUID of the session to revoke"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session revoked",
+            "schema": { "$ref": "#/definitions/MessageResponse" }
+          },
+          "401": { "description": "Missing or invalid access token", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "404": { "description": "Session not found or not owned by caller", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "500": { "description": "Internal error",                  "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/sessions/logout-all": {
+      "post": {
+        "tags": ["sessions"],
+        "summary": "Revoke all sessions",
+        "description": "Revokes every active session for the authenticated user and blacklists all their session UUIDs.",
+        "produces": ["application/json"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "All sessions revoked",
+            "schema": { "$ref": "#/definitions/LogoutAllResponse" }
+          },
+          "401": { "description": "Missing or invalid access token", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "500": { "description": "Internal error",                  "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/mfa/setup": {
+      "post": {
+        "tags": ["mfa"],
+        "summary": "Begin TOTP enrollment",
+        "description": "Generates a fresh TOTP secret, encrypts it, moves the user to pending_setup state, and returns the enrollment artifacts (shown once). Scan the QR code or enter the secret manually in an authenticator app, then call /mfa/verify-setup.",
+        "produces": ["application/json"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Enrollment artifacts",
+            "schema": { "$ref": "#/definitions/MFASetupResponse" }
+          },
+          "401": { "description": "Missing or invalid access token", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "404": { "description": "User not found",                  "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "409": { "description": "MFA already enabled",             "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "429": { "description": "Rate limit exceeded",             "schema": { "$ref": "#/definitions/RateLimitResponse" } },
+          "500": { "description": "Internal error",                  "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/mfa/verify-setup": {
+      "post": {
+        "tags": ["mfa"],
+        "summary": "Confirm TOTP setup and activate MFA",
+        "description": "Validates the first TOTP code from the authenticator app. On success activates MFA and returns 10 single-use recovery codes — show these to the user once and store them securely.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/MFACodeBody" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MFA enabled; recovery codes returned (once)",
+            "schema": { "$ref": "#/definitions/MFAVerifySetupResponse" }
+          },
+          "400": { "description": "Missing or invalid request body", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "401": { "description": "Invalid TOTP code",               "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "409": { "description": "Setup not started",               "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "429": { "description": "Rate limit exceeded",             "schema": { "$ref": "#/definitions/RateLimitResponse" } },
+          "500": { "description": "Internal error",                  "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/mfa/disable": {
+      "post": {
+        "tags": ["mfa"],
+        "summary": "Disable MFA",
+        "description": "Turns TOTP off after verifying a current factor (TOTP code or recovery code). Requiring a valid factor prevents a hijacked session from silently removing the second factor.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/MFACodeBody" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MFA disabled",
+            "schema": { "$ref": "#/definitions/MessageResponse" }
+          },
+          "400": { "description": "Missing or invalid request body",    "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "401": { "description": "Invalid TOTP or recovery code",      "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "409": { "description": "MFA not enabled",                    "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "429": { "description": "Rate limit exceeded",                "schema": { "$ref": "#/definitions/RateLimitResponse" } },
+          "500": { "description": "Internal error",                     "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/mfa/recovery-codes/generate": {
+      "post": {
+        "tags": ["mfa"],
+        "summary": "Regenerate recovery codes",
+        "description": "Invalidates all existing recovery codes and issues a fresh set of 10. Rate limited to 3 calls per hour.",
+        "produces": ["application/json"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "New recovery codes (shown once)",
+            "schema": { "$ref": "#/definitions/RecoveryCodesResponse" }
+          },
+          "401": { "description": "Missing or invalid access token", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "409": { "description": "MFA not enabled",                 "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "429": { "description": "Rate limit exceeded",             "schema": { "$ref": "#/definitions/RateLimitResponse" } },
+          "500": { "description": "Internal error",                  "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/accounts/lock": {
+      "post": {
+        "tags": ["admin"],
+        "summary": "Lock a user account",
+        "description": "Sets an admin lock on the target user and immediately blacklists all their active sessions so in-flight access tokens are rejected. Requires super_admin role.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/LockAccountBody" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account locked",
+            "schema": { "$ref": "#/definitions/MessageResponse" }
+          },
+          "400": { "description": "Missing or invalid request body",         "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "401": { "description": "Missing or invalid access token",         "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "403": { "description": "Insufficient permissions (not super_admin)", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "500": { "description": "Internal error",                          "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/accounts/unlock": {
+      "post": {
+        "tags": ["admin"],
+        "summary": "Unlock a user account",
+        "description": "Clears the admin lock and the Redis auto-lock for the target user. Requires super_admin role.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/UnlockAccountBody" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account unlocked",
+            "schema": { "$ref": "#/definitions/MessageResponse" }
+          },
+          "400": { "description": "Missing or invalid request body",            "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "401": { "description": "Missing or invalid access token",            "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "403": { "description": "Insufficient permissions (not super_admin)", "schema": { "$ref": "#/definitions/ErrorResponse" } },
+          "500": { "description": "Internal error",                             "schema": { "$ref": "#/definitions/ErrorResponse" } }
+        }
+      }
+    },
+
+    "/health": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Health check",
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status":  { "type": "string", "example": "ok" },
+                "service": { "type": "string", "example": "sentinel" }
+              }
+            }
+          }
+        }
+      }
+    }
+
+  },
+
+  "definitions": {
+
+    "AltchaChallenge": {
+      "type": "object",
+      "description": "Altcha proof-of-work challenge. Pass this to altcha.js; it will solve the PoW and return a base64-encoded solution to send in X-Captcha-Token.",
+      "properties": {
+        "algorithm": { "type": "string", "example": "SHA-256" },
+        "challenge":  { "type": "string", "example": "abc123..." },
+        "maxnumber":  { "type": "integer", "example": 1000000 },
+        "salt":       { "type": "string", "example": "randomsalt" },
+        "signature":  { "type": "string", "example": "hmac-signature" }
+      }
+    },
+
+    "OTPRequestBody": {
+      "type": "object",
+      "required": ["identifier"],
+      "properties": {
+        "identifier": {
+          "type": "string",
+          "description": "Email address or phone number",
+          "example": "user@example.com"
+        }
+      }
+    },
+
+    "OTPVerifyBody": {
+      "type": "object",
+      "required": ["identifier", "otp"],
+      "properties": {
+        "identifier": {
+          "type": "string",
+          "example": "user@example.com"
+        },
+        "otp": {
+          "type": "string",
+          "description": "6-digit one-time password",
+          "example": "123456"
+        }
+      }
+    },
+
+    "RefreshBody": {
+      "type": "object",
+      "required": ["refresh_key"],
+      "properties": {
+        "refresh_key": {
+          "type": "string",
+          "description": "Refresh JWT obtained from /otp/verify or /refresh"
+        }
+      }
+    },
+
+    "LogoutBody": {
+      "type": "object",
+      "required": ["refresh_key"],
+      "properties": {
+        "refresh_key": {
+          "type": "string",
+          "description": "Refresh JWT. Accepts expired tokens — logout always succeeds."
+        }
+      }
+    },
+
+    "MFACodeBody": {
+      "type": "object",
+      "required": ["code"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "6-digit TOTP code from authenticator app, or a recovery code",
+          "example": "123456"
+        }
+      }
+    },
+
+    "LockAccountBody": {
+      "type": "object",
+      "required": ["user_id"],
+      "properties": {
+        "user_id": {
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the user to lock",
+          "example": 42
+        },
+        "reason": {
+          "type": "string",
+          "description": "Human-readable reason for the lock",
+          "example": "abuse"
+        },
+        "locked_until": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC3339 timestamp. Omit for a permanent lock.",
+          "example": "2026-12-31T00:00:00Z"
+        }
+      }
+    },
+
+    "UnlockAccountBody": {
+      "type": "object",
+      "required": ["user_id"],
+      "properties": {
+        "user_id": {
+          "type": "integer",
+          "format": "int64",
+          "description": "ID of the user to unlock",
+          "example": 42
+        }
+      }
+    },
+
+    "TokenPair": {
+      "type": "object",
+      "properties": {
+        "api_key": {
+          "type": "string",
+          "description": "Short-lived access JWT. Send as `Authorization: Bearer <api_key>`."
+        },
+        "refresh_key": {
+          "type": "string",
+          "description": "Single-use refresh JWT. Exchange at /refresh for a new pair."
+        }
+      }
+    },
+
+    "Session": {
+      "type": "object",
+      "properties": {
+        "ID":          { "type": "integer", "format": "int64" },
+        "SessionUUID": { "type": "string",  "format": "uuid" },
+        "UserID":      { "type": "integer", "format": "int64" },
+        "IPAddress":   { "type": "string",  "example": "1.2.3.4" },
+        "UserAgent":   { "type": "string",  "example": "Mozilla/5.0 ..." },
+        "CreatedAt":   { "type": "string",  "format": "date-time" },
+        "LastActive":  { "type": "string",  "format": "date-time" },
+        "ExpiresAt":   { "type": "string",  "format": "date-time" },
+        "Revoked":     { "type": "boolean" },
+        "RevokedAt":   { "type": "string",  "format": "date-time", "x-nullable": true }
+      }
+    },
+
+    "SessionListResponse": {
+      "type": "object",
+      "properties": {
+        "sessions":  { "type": "array", "items": { "$ref": "#/definitions/Session" } },
+        "total":     { "type": "integer", "format": "int64" },
+        "page":      { "type": "integer" },
+        "page_size": { "type": "integer" }
+      }
+    },
+
+    "LogoutAllResponse": {
+      "type": "object",
+      "properties": {
+        "message": { "type": "string", "example": "all sessions revoked" },
+        "count":   { "type": "integer", "description": "Number of sessions revoked", "example": 3 }
+      }
+    },
+
+    "MFASetupResponse": {
+      "type": "object",
+      "properties": {
+        "otpauth_url": {
+          "type": "string",
+          "description": "otpauth:// URI for QR code generation",
+          "example": "otpauth://totp/Tafakori:user@example.com?secret=JBSWY3DP&issuer=Tafakori"
+        },
+        "qr_png_base64": {
+          "type": "string",
+          "description": "Base64-encoded PNG of the QR code (shown once)"
+        },
+        "secret": {
+          "type": "string",
+          "description": "Raw TOTP secret for manual entry in authenticator app (shown once)",
+          "example": "JBSWY3DPEHPK3PXP"
+        }
+      }
+    },
+
+    "MFAVerifySetupResponse": {
+      "type": "object",
+      "properties": {
+        "message": { "type": "string", "example": "mfa enabled" },
+        "recovery_codes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "10 single-use recovery codes. Shown once — store securely.",
+          "example": ["abc12-def34", "ghi56-jkl78"]
+        }
+      }
+    },
+
+    "RecoveryCodesResponse": {
+      "type": "object",
+      "properties": {
+        "recovery_codes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "New set of 10 recovery codes. Previous codes are invalidated.",
+          "example": ["abc12-def34", "ghi56-jkl78"]
+        }
+      }
+    },
+
+    "MessageResponse": {
+      "type": "object",
+      "properties": {
+        "message": { "type": "string" }
+      }
+    },
+
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": { "type": "string" }
+      }
+    },
+
+    "RateLimitResponse": {
+      "type": "object",
+      "properties": {
+        "error":       { "type": "string", "example": "rate_limit_exceeded" },
+        "message":     { "type": "string", "example": "Too many requests. Please try again later." },
+        "retry_after": { "type": "integer", "description": "Seconds to wait before retrying", "example": 600 }
+      }
+    }
+
+  }
+}

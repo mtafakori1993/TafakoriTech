@@ -1,0 +1,16 @@
+// Go workspace — enables local cross-module imports during development.
+// All services resolve github.com/mtafakori/shared from the local ./shared directory
+// instead of fetching it from a module proxy.
+//
+// Production builds (CI/Docker): add a replace directive in each service's go.mod
+// or publish github.com/mtafakori/shared to a module registry.
+go 1.22.2
+
+use (
+	./herald
+	./marshal
+	./persona
+	./pulse
+	./sentinel
+	./shared
+)

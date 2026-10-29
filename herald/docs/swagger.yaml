@@ -1,0 +1,898 @@
+basePath: /api/v1
+definitions:
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.ArticleResponse:
+    properties:
+      content:
+        $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ContentResponse'
+      content_id:
+        type: integer
+      id:
+        type: integer
+      read_time:
+        type: integer
+      tags:
+        items:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.TagResponse'
+        type: array
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.CategoryResponse:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.ContentResponse:
+    properties:
+      author_id:
+        type: integer
+      body:
+        type: string
+      created_at:
+        type: string
+      excerpt:
+        type: string
+      id:
+        type: integer
+      published_at:
+        type: string
+      seo_description:
+        type: string
+      seo_title:
+        type: string
+      slug:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.CreateArticleRequest:
+    properties:
+      body:
+        example: Article content...
+        type: string
+      excerpt:
+        example: Short summary
+        type: string
+      seo_description:
+        example: A comprehensive Go guide
+        type: string
+      seo_title:
+        example: Deep Dive into Go | Articles
+        type: string
+      slug:
+        example: deep-dive-into-go
+        type: string
+      tags:
+        example:
+        - '["go"'
+        - '"performance"]'
+        items:
+          type: string
+        type: array
+      title:
+        example: Deep Dive into Go
+        maxLength: 500
+        minLength: 1
+        type: string
+    required:
+    - title
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.CreatePageRequest:
+    properties:
+      body:
+        example: <p>We are...</p>
+        type: string
+      excerpt:
+        example: Short description
+        type: string
+      is_system:
+        example: false
+        type: boolean
+      route:
+        example: /about
+        type: string
+      seo_description:
+        example: Learn about us
+        type: string
+      seo_title:
+        example: About Us | Herald
+        type: string
+      slug:
+        example: about-us
+        type: string
+      template:
+        example: default
+        type: string
+      title:
+        example: About Us
+        maxLength: 500
+        minLength: 1
+        type: string
+    required:
+    - route
+    - title
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.CreatePostRequest:
+    properties:
+      body:
+        example: Post content...
+        type: string
+      category_id:
+        example: 1
+        type: integer
+      excerpt:
+        example: Short summary
+        type: string
+      seo_description:
+        example: A great post about Go
+        type: string
+      seo_title:
+        example: My First Post | Blog
+        type: string
+      slug:
+        example: my-first-post
+        type: string
+      tags:
+        example:
+        - '["go"'
+        - '"backend"]'
+        items:
+          type: string
+        type: array
+      title:
+        example: My First Post
+        maxLength: 500
+        minLength: 1
+        type: string
+    required:
+    - title
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.PageResponse:
+    properties:
+      content:
+        $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ContentResponse'
+      id:
+        type: integer
+      is_system:
+        type: boolean
+      route:
+        type: string
+      template:
+        type: string
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.PostResponse:
+    properties:
+      category:
+        $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.CategoryResponse'
+      category_id:
+        type: integer
+      content:
+        $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ContentResponse'
+      content_id:
+        type: integer
+      id:
+        type: integer
+      tags:
+        items:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.TagResponse'
+        type: array
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.TagResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.UpdateArticleRequest:
+    properties:
+      body:
+        example: Updated content...
+        type: string
+      excerpt:
+        example: Short summary
+        type: string
+      seo_description:
+        example: Updated description
+        type: string
+      seo_title:
+        example: Updated Article | Articles
+        type: string
+      tags:
+        example:
+        - '["go"'
+        - '"performance"]'
+        items:
+          type: string
+        type: array
+      title:
+        example: Updated Article Title
+        maxLength: 500
+        minLength: 1
+        type: string
+    required:
+    - title
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.UpdatePageRequest:
+    properties:
+      body:
+        example: <p>We are...</p>
+        type: string
+      excerpt:
+        example: Short description
+        type: string
+      route:
+        example: /about
+        type: string
+      seo_description:
+        example: Learn about us
+        type: string
+      seo_title:
+        example: About Us | Herald
+        type: string
+      template:
+        example: default
+        type: string
+      title:
+        example: About Us
+        maxLength: 500
+        minLength: 1
+        type: string
+    required:
+    - route
+    - title
+    type: object
+  github_com_mtafakori_herald_internal_content_transport_rest_dto.UpdatePostRequest:
+    properties:
+      body:
+        example: Updated content...
+        type: string
+      excerpt:
+        example: Short summary
+        type: string
+      seo_description:
+        example: Updated description
+        type: string
+      seo_title:
+        example: Updated Post | Blog
+        type: string
+      tags:
+        example:
+        - '["go"'
+        - '"backend"]'
+        items:
+          type: string
+        type: array
+      title:
+        example: Updated Post Title
+        maxLength: 500
+        minLength: 1
+        type: string
+    required:
+    - title
+    type: object
+  ? github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_ArticleResponse
+  : properties:
+      data:
+        items:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ArticleResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  ? github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_ContentResponse
+  : properties:
+      data:
+        items:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ContentResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  ? github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_PageResponse
+  : properties:
+      data:
+        items:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.PageResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  ? github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_PostResponse
+  : properties:
+      data:
+        items:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.PostResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+host: 127.0.0.1:8092
+info:
+  contact:
+    name: Tafakori Tech
+  description: Headless CMS for managing pages, posts, and articles.
+  title: Herald CMS API
+  version: "1.0"
+paths:
+  /admin/articles:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_ArticleResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List all articles (admin, all statuses)
+      tags:
+      - articles
+  /admin/posts:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_PostResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List all posts (admin, all statuses)
+      tags:
+      - posts
+  /articles:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_ArticleResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      summary: List published articles
+      tags:
+      - articles
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Article data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.CreateArticleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ArticleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create an article
+      tags:
+      - articles
+  /articles/{id}:
+    delete:
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete an article
+      tags:
+      - articles
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated article data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.UpdateArticleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ArticleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update an article
+      tags:
+      - articles
+  /articles/{slug}:
+    get:
+      parameters:
+      - description: Article slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ArticleResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      summary: Get article by slug
+      tags:
+      - articles
+  /pages:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_PageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List all pages
+      tags:
+      - pages
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Page data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.CreatePageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.PageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a page
+      tags:
+      - pages
+  /pages/{id}:
+    delete:
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a page
+      tags:
+      - pages
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated page data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.UpdatePageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.PageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update a page
+      tags:
+      - pages
+  /pages/{slug}:
+    get:
+      parameters:
+      - description: Page slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.PageResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      summary: Get page by slug
+      tags:
+      - pages
+  /posts:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_PostResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      summary: List published posts
+      tags:
+      - posts
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Post data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.CreatePostRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.PostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a post
+      tags:
+      - posts
+  /posts/{id}:
+    delete:
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a post
+      tags:
+      - posts
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated post data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.UpdatePostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.PostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update a post
+      tags:
+      - posts
+  /posts/{slug}:
+    get:
+      parameters:
+      - description: Post slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.PostResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      summary: Get post by slug
+      tags:
+      - posts
+  /publish/{id}:
+    post:
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Publish a content item
+      tags:
+      - publishing
+  /search:
+    get:
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_shared_pagination.Response-github_com_mtafakori_herald_internal_content_transport_rest_dto_ContentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      summary: Full-text search across all published content
+      tags:
+      - search
+  /unpublish/{id}:
+    post:
+      parameters:
+      - description: Content ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_mtafakori_herald_internal_content_transport_rest_dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Unpublish a content item
+      tags:
+      - publishing
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
+swagger: "2.0"

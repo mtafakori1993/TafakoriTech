@@ -1,0 +1,113 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────
+# Sentinel Auth Service — Docker Swarm stack
+#
+# Prerequisites:
+#   docker stack deploy -c ../../../infra/observability/stack.yml observability
+#   docker secret create elastic_password -
+#   docker secret create jwt_secret -
+#   docker secret create persona_api_key -
+#
+# Deploy:
+#   docker stack deploy -c stack.yml sentinel
+# ─────────────────────────────────────────────────────────────
+
+networks:
+  auth_net:
+    driver: overlay
+    attachable: true
+    driver_opts:
+      encrypted: "true"
+  # Join the existing observability overlay so Fluent Bit can collect logs
+  obs-net:
+    external: true
+
+volumes:
+  redis_data:
+
+secrets:
+  jwt_secret:
+    external: true
+  persona_api_key:
+    external: true
+
+services:
+
+  # ── Authentication service ────────────────────────────────
+  sentinel:
+    image: tafakori/sentinel:latest
+    networks:
+      - auth_net
+      - obs-net
+    ports:
+      - "8094:8094"
+    environment:
+      ENV: production
+      HOST: "0.0.0.0"
+      PORT: "8094"
+      DATABASE_URL: "${DATABASE_URL}"
+      PERSONA_URL: "http://persona:8095"
+      REDIS_URL: "redis://redis:6379"
+      # Rate limits — override defaults here or via .env
+      RATE_LIMIT_OTP_REQUEST_LIMIT: "5"
+      RATE_LIMIT_OTP_REQUEST_WINDOW: "10m"
+      RATE_LIMIT_OTP_VERIFY_LIMIT: "10"
+      RATE_LIMIT_OTP_VERIFY_WINDOW: "10m"
+      RATE_LIMIT_LOGIN_LIMIT: "20"
+      RATE_LIMIT_LOGIN_WINDOW: "1h"
+      RATE_LIMIT_REFRESH_LIMIT: "30"
+      RATE_LIMIT_REFRESH_WINDOW: "1h"
+    secrets:
+      - source: jwt_secret
+        target: /run/secrets/jwt_secret
+      - source: persona_api_key
+        target: /run/secrets/persona_api_key
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          memory: 128M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8094/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Redis (rate limiting) ─────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - auth_net
+    volumes:
+      - redis_data:/data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 384M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3

@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Commander</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --navy: #0F172A;
+    --green: #22C55E;
+    --green-bright: #4ADE80;
+    --white: #F8FAFC;
+    --surface: #16223d;
+    --surface-2: #1c2a47;
+    --border: #243352;
+    --muted: #8aa0bf;
+    --warn: #f59e0b;
+    --danger: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+         background: var(--navy); color: var(--white); }
+
+  header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex;
+           align-items: center; gap: 12px; }
+  header h1 { font-size: 16px; margin: 0; color: var(--green-bright); }
+  header .sep { color: var(--border); }
+  header .health { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  header .health .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--muted); }
+  header .health.ok .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  header .health.warn .dot { background: var(--warn); }
+  header .health.down .dot { background: var(--danger); }
+  header .spacer { flex: 1; }
+  header input.token { width: 240px; background: var(--surface-2); color: var(--white);
+           border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: inherit; }
+
+  nav { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--border); background: var(--navy); }
+  nav button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
+               padding: 11px 14px; font: inherit; cursor: pointer; margin: 0; }
+  nav button:hover { color: var(--white); }
+  nav button.active { color: var(--white); border-bottom-color: var(--green); }
+
+  main { display: grid; grid-template-columns: 360px 1fr; height: calc(100vh - 53px - 45px); }
+  aside { border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; }
+  section { display: flex; flex-direction: column; min-height: 0; }
+  .tab { display: none; height: 100%; }
+  .tab.active { display: grid; grid-template-columns: 360px 1fr; }
+
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input, textarea, select { width: 100%; background: var(--surface-2); color: var(--white);
+           border: 1px solid var(--border); border-radius: 6px; padding: 8px; font: inherit; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--green); }
+  textarea { resize: vertical; min-height: 80px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { margin: 0; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .check input { width: auto; accent-color: var(--green); }
+  button.act { background: var(--green); color: var(--navy); border: 0; border-radius: 6px;
+           padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; margin-top: 12px; }
+  button.act:hover:not(:disabled) { background: var(--green-bright); }
+  button.secondary { background: var(--surface-2); color: var(--white); border: 1px solid var(--border); }
+  button.secondary:hover:not(:disabled) { border-color: var(--green); }
+  button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .list { list-style: none; padding: 0; margin: 16px 0 0; }
+  .list li { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+              margin-bottom: 6px; cursor: pointer; background: var(--surface); }
+  .list li:hover { border-color: var(--green-bright); }
+  .list li.active { border-color: var(--green); background: var(--surface-2); }
+  .list .meta { font-size: 11px; color: var(--muted); word-break: break-all; }
+  .list .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+  .running, .on { background: rgba(34,197,94,.18); color: var(--green-bright); }
+  .completed { background: rgba(34,197,94,.18); color: var(--green-bright); }
+  .failed { background: rgba(248,113,113,.16); color: var(--danger); }
+  .stopped, .off { background: var(--surface-2); color: var(--muted); }
+
+  .toolbar { padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex;
+             gap: 10px; align-items: center; flex-wrap: wrap; }
+  .toolbar strong { color: var(--white); }
+  .toolbar .sid { font-size: 11px; color: var(--muted); }
+  .toolbar button { margin: 0; padding: 6px 12px; }
+
+  /* ---- tasks / sessions log ---- */
+  #log, #sessLog { flex: 1; overflow-y: auto; padding: 16px 20px; white-space: pre-wrap;
+         word-break: break-word; }
+  .line { margin: 0 0 2px; }
+  .role-assistant { color: var(--white); }
+  .role-tool { color: var(--green-bright); }
+  .role-stderr { color: var(--danger); }
+  .role-system { color: var(--muted); }
+  .role-result { color: var(--green); }
+  .role-user { color: var(--green-bright); }
+  .role-ack { color: var(--green); }
+
+  .composer { display: flex; gap: 8px; padding: 10px 20px; border-top: 1px solid var(--border); }
+  .composer input { flex: 1; }
+  .composer button { margin: 0; }
+
+  /* Android-style chat input bar for terminal/shell sections */
+  .chat-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    background: #0c1626;
+  }
+  .chat-bar .ctrl-btns {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .chat-bar .ctrl-btn {
+    background: #162035;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    color: var(--muted);
+    font: 11px/1 ui-monospace, monospace;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  .chat-bar .ctrl-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--white); }
+  .chat-bar .ctrl-btn:disabled { opacity: .35; cursor: default; }
+  .chat-bar .chat-input {
+    flex: 1;
+    background: #162035;
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 8px 16px;
+    font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--white);
+    outline: none;
+    transition: border-color .2s;
+    width: 100%;
+  }
+  .chat-bar .chat-input:focus { border-color: var(--green); }
+  .chat-bar .chat-input:disabled { opacity: .4; cursor: default; }
+  .chat-bar .send-btn {
+    background: var(--green);
+    border: none;
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    color: var(--navy);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+    font-size: 16px;
+    transition: background .15s, transform .1s;
+    margin: 0;
+  }
+  .chat-bar .send-btn:hover:not(:disabled) { background: var(--green-bright); transform: scale(1.08); }
+  .chat-bar .send-btn:disabled { opacity: .35; cursor: default; transform: none; }
+
+  .empty { color: var(--muted); padding: 24px 20px; }
+  a { color: var(--green-bright); }
+  code { color: var(--green-bright); }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ---- Android-style bubble chat ---- */
+  .bubble-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+    background: #06101f;
+  }
+
+  /* Incoming — terminal/shell output, left-aligned */
+  .term-line {
+    max-width: 86%;
+    align-self: flex-start;
+    padding: 7px 13px 6px;
+    border-radius: 4px 18px 18px 18px;   /* pointed top-left = "received" */
+    background: #132030;
+    box-shadow: 0 1px 2px rgba(0,0,0,.55);
+    font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    line-height: 1.55;
+    color: #d8e4f5;
+    word-break: break-word;
+    white-space: pre-wrap;
+    transition: background 0.2s;
+    animation: bubble-in 0.14s ease-out both;
+  }
+
+  /* Two consecutive output lines — tighten the gap and flatten the top corner */
+  .term-line + .term-line {
+    border-top-left-radius: 18px;
+    margin-top: 0;
+  }
+
+  /* Empty terminal lines — invisible spacer */
+  .term-line.spacer {
+    background: transparent !important;
+    box-shadow: none;
+    padding: 0;
+    min-height: 5px;
+    max-width: 100%;
+    border-radius: 0;
+  }
+
+  /* Brief highlight when a line's content changes live */
+  .term-line.line-updated {
+    background: #1c3352;
+  }
+
+  /* Outgoing — user command, right-aligned */
+  .term-line-input {
+    max-width: 78%;
+    align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    padding: 8px 14px 6px;
+    border-radius: 18px 4px 18px 18px;   /* pointed top-right = "sent" */
+    background: #0c3a1c;
+    box-shadow: 0 1px 2px rgba(0,0,0,.5);
+    word-break: break-word;
+    white-space: pre-wrap;
+    animation: bubble-in 0.14s ease-out both;
+    margin-top: 8px;
+    margin-bottom: 4px;
+  }
+  .term-line-input + .term-line {
+    border-top-left-radius: 4px;   /* first reply line has the incoming "tail" again */
+    margin-top: 4px;
+  }
+  .bubble-cmd {
+    font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    line-height: 1.55;
+    color: #86efac;
+  }
+  .bubble-meta {
+    font-size: 10px;
+    color: rgba(134,239,172,.45);
+    letter-spacing: .3px;
+    user-select: none;
+  }
+
+  @keyframes bubble-in {
+    from { opacity: 0; transform: translateY(6px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+
+  /* ---- archive ---- */
+  .arc-badge-terminal { background: rgba(96,165,250,.16); color: #93c5fd; }
+  .arc-badge-shell    { background: rgba(34,197,94,.16);  color: var(--green-bright); }
+  .arc-badge-off      { background: var(--surface-2);     color: var(--muted); }
+  .arc-no-db { font-size: 12px; color: var(--warn); padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⌘ Commander</h1>
+  <span class="sep">·</span>
+  <span class="health" id="health" title="server health"><span class="dot"></span><span id="healthText">connecting…</span></span>
+  <span class="spacer"></span>
+  <input class="token" id="token" type="password" placeholder="API token (from server terminal)" />
+</header>
+
+<nav>
+  <button data-tab="tasks" class="active">Tasks</button>
+  <button data-tab="sessions">Sessions</button>
+  <button data-tab="terminals">Terminals</button>
+  <button data-tab="shells">Shell</button>
+  <button data-tab="archive">Archive</button>
+</nav>
+
+<!-- ===================== TASKS ===================== -->
+<main class="tab active" id="tab-tasks">
+  <aside>
+    <label>Working path</label>
+    <input id="t_path" placeholder="/home/me/projects/app" />
+    <label>Model (optional)</label>
+    <input id="t_model" placeholder="opus · sonnet · haiku · fable" />
+    <label>Permission mode</label>
+    <select id="t_perm">
+      <option value="acceptEdits">acceptEdits</option>
+      <option value="bypassPermissions">bypassPermissions</option>
+      <option value="plan">plan</option>
+      <option value="default">default</option>
+    </select>
+    <label>Prompt</label>
+    <textarea id="t_prompt" placeholder="What should Claude do?"></textarea>
+    <button class="act" id="t_run">▶ Run task</button>
+    <ul class="list" id="t_list"></ul>
+  </aside>
+  <section>
+    <div class="toolbar">
+      <strong id="t_title">No task selected</strong>
+      <span id="t_status"></span>
+      <span class="sid" id="t_sid"></span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="secondary" id="t_stop" disabled>Stop</button>
+    </div>
+    <div id="log"><div class="empty">Run a task or pick one from the list to watch its output stream live.</div></div>
+  </section>
+</main>
+
+<!-- ===================== SESSIONS ===================== -->
+<main class="tab" id="tab-sessions">
+  <aside>
+    <label>Working path</label>
+    <input id="s_path" placeholder="/home/me/projects/app" />
+    <label>Model (optional)</label>
+    <input id="s_model" placeholder="opus · sonnet · haiku · fable" />
+    <label>Permission mode</label>
+    <select id="s_perm">
+      <option value="acceptEdits">acceptEdits</option>
+      <option value="bypassPermissions">bypassPermissions</option>
+      <option value="plan">plan</option>
+      <option value="default">default</option>
+    </select>
+    <button class="act" id="s_create">＋ New session</button>
+    <ul class="list" id="s_list"></ul>
+  </aside>
+  <section>
+    <div class="toolbar">
+      <strong id="s_title">No session selected</strong>
+      <span class="sid" id="s_model_label"></span>
+      <span class="spacer" style="flex:1"></span>
+      <span class="sid" id="s_path_label"></span>
+    </div>
+    <div id="sessLog"><div class="empty">Create a session, then send prompts or slash commands (<code>/model &lt;id&gt;</code>, <code>/clear</code>, <code>/help</code>). Context persists between commands.</div></div>
+    <div class="composer">
+      <input id="s_cmd" placeholder="prompt, or /model sonnet · /clear · /help" disabled />
+      <button class="act" id="s_send" style="margin:0" disabled>Send</button>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== TERMINALS ===================== -->
+<main class="tab" id="tab-terminals">
+  <aside>
+    <label>Working path</label>
+    <input id="x_path" placeholder="/home/me/projects/app" />
+    <label>Model (optional)</label>
+    <input id="x_model" placeholder="opus · sonnet · haiku · fable" />
+    <label>Permission mode</label>
+    <select id="x_perm">
+      <option value="acceptEdits">acceptEdits</option>
+      <option value="plan">plan</option>
+      <option value="default">default</option>
+    </select>
+    <label class="check"><input type="checkbox" id="x_skip" /> --dangerously-skip-permissions</label>
+    <label class="check"><input type="checkbox" id="x_auto" checked /> auto-accept first-run dialogs</label>
+    <button class="act" id="x_create">⊕ Turn on terminal</button>
+    <div class="hint">Launches the interactive <code>claude</code> TUI in a PTY. Every slash command works natively — no API key needed.</div>
+    <ul class="list" id="x_list"></ul>
+  </aside>
+  <section>
+    <div class="toolbar">
+      <strong id="x_title">No terminal</strong>
+      <span id="x_status"></span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="secondary" id="x_on" disabled>On</button>
+      <button class="secondary" id="x_off" disabled>Off</button>
+      <button class="danger" id="x_del" disabled>Delete</button>
+    </div>
+    <div class="bubble-area" id="termBubbles">
+      <div class="empty">Turn on a terminal or pick one from the list to see its live output.</div>
+    </div>
+    <div class="chat-bar">
+      <div class="ctrl-btns">
+        <button class="ctrl-btn" id="x_esc" title="Escape (Esc)" disabled>⎋</button>
+        <button class="ctrl-btn" id="x_ctrlc" title="Interrupt (Ctrl+C)" disabled>⊗</button>
+      </div>
+      <input class="chat-input" id="x_cmd" placeholder="Type a command…" disabled />
+      <button class="send-btn" id="x_send" title="Send" disabled>▶</button>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== SHELL ===================== -->
+<main class="tab" id="tab-shells">
+  <aside>
+    <label>Working path</label>
+    <input id="h_path" placeholder="/home/me/projects/app" />
+    <label>Command (optional)</label>
+    <input id="h_cmd_init" placeholder="leave blank for the server's $SHELL" />
+    <button class="act" id="h_create">⊕ Open free shell</button>
+    <div class="hint">Runs <strong>any command</strong> (a shell by default) on the server in a PTY. Full server privileges — no Claude involved.</div>
+    <ul class="list" id="h_list"></ul>
+  </aside>
+  <section>
+    <div class="toolbar">
+      <strong id="h_title">No shell</strong>
+      <span id="h_status"></span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="secondary" id="h_on" disabled>On</button>
+      <button class="secondary" id="h_off" disabled>Off</button>
+      <button class="danger" id="h_del" disabled>Delete</button>
+    </div>
+    <div class="bubble-area" id="shBubbles">
+      <div class="empty">Open a shell or pick one from the list to see its live output.</div>
+    </div>
+    <div class="chat-bar">
+      <div class="ctrl-btns">
+        <button class="ctrl-btn" id="h_esc" title="Escape (Esc)" disabled>⎋</button>
+        <button class="ctrl-btn" id="h_ctrlc" title="Interrupt (Ctrl+C)" disabled>⊗</button>
+      </div>
+      <input class="chat-input" id="h_cmd" placeholder="Type a command…" disabled />
+      <button class="send-btn" id="h_send" title="Send" disabled>▶</button>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== ARCHIVE ===================== -->
+<main class="tab" id="tab-archive">
+  <aside>
+    <div id="arc_db_status"></div>
+    <label>Saved sessions</label>
+    <ul class="list" id="arc_list"></ul>
+  </aside>
+  <section>
+    <div class="toolbar">
+      <strong id="arc_title">No session selected</strong>
+      <span id="arc_meta" class="sid"></span>
+      <span class="spacer" style="flex:1"></span>
+      <span id="arc_exit" class="sid"></span>
+    </div>
+    <div class="bubble-area" id="arcBubbles">
+      <div class="empty">Select an archived session to view its final screen state.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const API = "/v1";
+const tokenKey = "commander_token";
+
+$("token").value = localStorage.getItem(tokenKey) || new URLSearchParams(location.search).get("token") || "";
+$("token").addEventListener("change", () => { localStorage.setItem(tokenKey, token()); checkHealth(); });
+function token() { return $("token").value.trim(); }
+function headers() { return { "Content-Type": "application/json", "X-API-Key": token() }; }
+function streamUrl(path) { return `${API}${path}${path.includes("?") ? "&" : "?"}token=${encodeURIComponent(token())}`; }
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+  return res.status === 204 ? null : res.json();
+}
+function escapeHtml(s) { return (s || "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+
+// ---- tabs ------------------------------------------------------------------
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.id === "tab-" + b.dataset.tab));
+  if (b.dataset.tab === "archive") loadArchive();
+});
+
+// ---- health ----------------------------------------------------------------
+async function checkHealth() {
+  const el = $("health"), txt = $("healthText");
+  try {
+    const h = await fetch("/health").then(r => r.json());
+    if (h.claude_logged_in) { el.className = "health ok"; txt.textContent = `Claude ready · v${h.version}`; }
+    else { el.className = "health warn"; txt.textContent = "Claude logged out — run `claude auth login`"; }
+  } catch { el.className = "health down"; txt.textContent = "server unreachable"; }
+}
+
+// ---- shared stream-json renderer (tasks & sessions) ------------------------
+function logLine(target, cls, text) {
+  const div = document.createElement("div");
+  div.className = "line " + cls;
+  div.textContent = text;
+  target.appendChild(div);
+  target.scrollTop = target.scrollHeight;
+}
+function renderEvent(target, ev, onEnd) {
+  if (ev.type === "assistant") {
+    for (const b of (ev.message?.content || [])) {
+      if (b.type === "text" && b.text) logLine(target, "role-assistant", b.text);
+      if (b.type === "tool_use") logLine(target, "role-tool", `🔧 ${b.name} ${JSON.stringify(b.input).slice(0, 200)}`);
+    }
+  } else if (ev.type === "user") {
+    for (const b of (ev.message?.content || [])) {
+      if (b.type === "tool_result") {
+        const c = Array.isArray(b.content) ? b.content.map(x => x.text || "").join("") : (b.content || "");
+        logLine(target, "role-tool", "↳ " + String(c).slice(0, 400));
+      }
+    }
+  } else if (ev.type === "result") {
+    logLine(target, "role-result", "✓ " + (ev.result || JSON.stringify(ev)).toString().slice(0, 2000));
+  } else if (ev.type === "stderr") {
+    logLine(target, "role-stderr", ev.text);
+  } else if (ev.type === "stdout") {
+    logLine(target, "role-system", ev.text);
+  } else if (ev.type === "commander") {
+    if (ev.event === "started") logLine(target, "role-system", "▶ " + (ev.command || []).join(" "));
+    if (ev.event === "ended") { logLine(target, "role-system", `■ ${ev.status} (exit ${ev.exit_code})`); onEnd && onEnd(ev.status); }
+    if (ev.event === "error") logLine(target, "role-stderr", "✗ " + ev.message);
+  }
+}
+
+// ===================== TASKS =====================
+let curTask = null, taskES = null;
+
+async function refreshTasks() {
+  let tasks = [];
+  try { tasks = await api("/tasks"); } catch { return; }
+  const ul = $("t_list"); ul.innerHTML = "";
+  for (const t of tasks) {
+    const li = document.createElement("li");
+    if (t.id === curTask) li.className = "active";
+    li.innerHTML = `<div class="head"><span class="badge ${t.status}">${t.status}</span></div>
+      <div>${escapeHtml(t.prompt).slice(0, 60)}</div>
+      <div class="meta">${escapeHtml(t.path)}</div>`;
+    li.onclick = () => openTask(t.id);
+    ul.appendChild(li);
+  }
+}
+function openTask(id) {
+  if (taskES) taskES.close();
+  curTask = id;
+  $("log").innerHTML = ""; $("t_sid").textContent = ""; $("t_stop").disabled = false;
+  refreshTasks();
+  api("/tasks/" + id).then(d => {
+    $("t_title").textContent = d.prompt.slice(0, 80);
+    $("t_status").innerHTML = `<span class="badge ${d.status}">${d.status}</span>`;
+    if (d.session_id) $("t_sid").textContent = "claude session " + d.session_id;
+  });
+  taskES = new EventSource(streamUrl(`/tasks/${id}/stream`));
+  taskES.onmessage = (m) => { try {
+    const ev = JSON.parse(m.data);
+    if (ev.session_id) $("t_sid").textContent = "claude session " + ev.session_id;
+    renderEvent($("log"), ev, finishTask);
+  } catch {} };
+  taskES.addEventListener("end", () => taskES.close());
+}
+function finishTask(status) {
+  $("t_status").innerHTML = `<span class="badge ${status}">${status}</span>`;
+  $("t_stop").disabled = true;
+  refreshTasks();
+}
+$("t_run").onclick = async () => {
+  const body = { prompt: $("t_prompt").value, path: $("t_path").value,
+    model: $("t_model").value || null, permission_mode: $("t_perm").value };
+  if (!body.prompt || !body.path) { alert("path and prompt are required"); return; }
+  try { const t = await api("/tasks", { method: "POST", body: JSON.stringify(body) });
+    $("t_prompt").value = ""; openTask(t.id);
+  } catch (e) { alert("Error: " + e.message); }
+};
+$("t_stop").onclick = () => { if (curTask) api(`/tasks/${curTask}/stop`, { method: "POST" }).catch(() => {}); };
+
+// ===================== SESSIONS =====================
+let curSession = null, sessES = null;
+
+async function refreshSessions() {
+  let list = [];
+  try { list = await api("/sessions"); } catch { return; }
+  const ul = $("s_list"); ul.innerHTML = "";
+  for (const s of list) {
+    const li = document.createElement("li");
+    if (s.id === curSession) li.className = "active";
+    li.innerHTML = `<div class="head"><strong>${escapeHtml(s.id)}</strong><span class="badge ${s.claude_session_id ? "running" : "off"}">${s.claude_session_id ? "live" : "fresh"}</span></div>
+      <div class="meta">${escapeHtml(s.model || "default")} · ${escapeHtml(s.permission_mode)}</div>
+      <div class="meta">${escapeHtml(s.path)}</div>`;
+    li.onclick = () => selectSession(s.id);
+    ul.appendChild(li);
+  }
+}
+async function selectSession(id) {
+  curSession = id;
+  if (sessES) { sessES.close(); sessES = null; }
+  $("sessLog").innerHTML = "";
+  $("s_cmd").disabled = false; $("s_send").disabled = false; $("s_cmd").focus();
+  const s = await api("/sessions/" + id);
+  $("s_title").textContent = s.id;
+  $("s_model_label").textContent = "model: " + (s.model || "default");
+  $("s_path_label").textContent = s.path;
+  refreshSessions();
+}
+$("s_create").onclick = async () => {
+  if (!$("s_path").value) { alert("path is required"); return; }
+  try {
+    const s = await api("/sessions", { method: "POST", body: JSON.stringify({
+      path: $("s_path").value, model: $("s_model").value || null, permission_mode: $("s_perm").value }) });
+    await refreshSessions(); selectSession(s.id);
+  } catch (e) { alert("Error: " + e.message); }
+};
+async function sendSessionCommand() {
+  const cmd = $("s_cmd").value.trim();
+  if (!cmd || !curSession) return;
+  $("s_cmd").value = "";
+  logLine($("sessLog"), "role-user", "❯ " + cmd);
+  try {
+    const r = await api(`/sessions/${curSession}/commands`, { method: "POST", body: JSON.stringify({ command: cmd }) });
+    if (r.kind === "ack") {
+      logLine($("sessLog"), "role-ack", "ℹ " + r.message);
+      $("s_model_label").textContent = "model: " + (r.session?.model || "default");
+      refreshSessions();
+    } else if (r.kind === "task" && r.task) {
+      streamSessionTask(r.task.id);
+    }
+  } catch (e) { logLine($("sessLog"), "role-stderr", "✗ " + e.message); }
+}
+function streamSessionTask(taskId) {
+  if (sessES) sessES.close();
+  sessES = new EventSource(streamUrl(`/tasks/${taskId}/stream`));
+  sessES.onmessage = (m) => { try { renderEvent($("sessLog"), JSON.parse(m.data), () => refreshSessions()); } catch {} };
+  sessES.addEventListener("end", () => sessES.close());
+}
+$("s_send").onclick = sendSessionCommand;
+$("s_cmd").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); sendSessionCommand(); } });
+
+
+// ===================== BUBBLE RENDERER =====================
+
+// Convert ANSI escape codes to safe HTML spans.
+function ansiToHtml(s) {
+  if (!s) return '';
+  const FG = {
+    30:'#475569',31:'#f87171',32:'#4ade80',33:'#fbbf24',
+    34:'#60a5fa',35:'#c084fc',36:'#22d3ee',37:'#cbd5e1',
+    90:'#64748b',91:'#fca5a5',92:'#86efac',93:'#fde68a',
+    94:'#93c5fd',95:'#d8b4fe',96:'#67e8f9',97:'#f8fafc',
+  };
+  const BG = {
+    40:'#1e293b',41:'#7f1d1d',42:'#14532d',43:'#713f12',
+    44:'#1e3a5f',45:'#581c87',46:'#164e63',47:'#334155',
+    100:'#334155',101:'#991b1b',102:'#166534',103:'#92400e',
+    104:'#1d4ed8',105:'#7c3aed',106:'#0e7490',107:'#475569',
+  };
+
+  let out = '';
+  let fg = null, bg = null, bold = false;
+  let pos = 0;
+
+  const span = (text) => {
+    if (!text) return;
+    const css = [];
+    if (fg)   css.push(`color:${fg}`);
+    if (bg)   css.push(`background:${bg}`);
+    if (bold) css.push('font-weight:700');
+    const safe = text.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    out += css.length ? `<span style="${css.join(';')}">${safe}</span>` : safe;
+  };
+
+  while (pos < s.length) {
+    if (s[pos] === '\x1b' && s[pos + 1] === '[') {
+      const end = s.indexOf('m', pos + 2);
+      if (end === -1) { pos++; continue; }
+      const param = s.slice(pos + 2, end);
+      const codes = param ? param.split(';').map(Number) : [0];
+      for (let i = 0; i < codes.length; i++) {
+        const c = codes[i];
+        if (c === 0)  { fg = bg = null; bold = false; }
+        else if (c === 1)  bold = true;
+        else if (c === 22) bold = false;
+        else if (c === 39) fg = null;
+        else if (c === 49) bg = null;
+        else if ((c >= 30 && c <= 37) || (c >= 90 && c <= 97)) fg = FG[c] || null;
+        else if ((c >= 40 && c <= 47) || (c >= 100 && c <= 107)) bg = BG[c] || null;
+        else if (c === 38 && codes[i+1] === 2 && i + 4 < codes.length) {
+          fg = `rgb(${codes[i+2]},${codes[i+3]},${codes[i+4]})`; i += 4;
+        } else if (c === 48 && codes[i+1] === 2 && i + 4 < codes.length) {
+          bg = `rgb(${codes[i+2]},${codes[i+3]},${codes[i+4]})`; i += 4;
+        }
+      }
+      pos = end + 1;
+      continue;
+    }
+    // Collect non-escape text
+    let start = pos;
+    while (pos < s.length && !(s[pos] === '\x1b' && s[pos+1] === '[')) pos++;
+    span(s.slice(start, pos));
+  }
+  return out;
+}
+
+// Renders terminal screen state as animated chat bubbles.
+class BubbleRenderer {
+  constructor(el) {
+    this.el = el;
+    this.plainLines = [];
+    this.bubbles = [];
+    this._timer = null;
+    this._pending = null;
+    this._lastRender = 0;
+  }
+
+  update(screen, ansi) {
+    // Throttle: max one DOM update per 60 ms.
+    const now = Date.now();
+    this._pending = { screen, ansi };
+    if (this._timer) return;
+    const delay = Math.max(0, 60 - (now - this._lastRender));
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      this._lastRender = Date.now();
+      this._apply(this._pending.screen, this._pending.ansi);
+    }, delay);
+  }
+
+  _apply(screen, ansi) {
+    const newPlain = screen ? screen.split('\n') : [];
+    const newAnsi  = ansi  ? ansi.split('\n')  : [];
+
+    const newLen = newPlain.length;
+    const oldLen = this.plainLines.length;
+
+    for (let i = 0; i < Math.max(newLen, oldLen); i++) {
+      if (i < newLen) {
+        const pLine = newPlain[i] ?? '';
+        const aLine = newAnsi[i]  ?? pLine;
+
+        if (i >= oldLen) {
+          // New line — append bubble.
+          const b = this._makeBubble(pLine, aLine);
+          this.el.appendChild(b);
+          this.bubbles.push(b);
+        } else if (pLine !== this.plainLines[i]) {
+          // Changed — update in place with brief highlight.
+          const b = this.bubbles[i];
+          b.innerHTML = pLine.trim() ? ansiToHtml(aLine) || '&nbsp;' : '&nbsp;';
+          b.className = pLine.trim() ? 'term-line line-updated' : 'term-line spacer line-updated';
+          clearTimeout(b._hl);
+          b._hl = setTimeout(() => b.classList.remove('line-updated'), 700);
+        }
+      } else if (this.bubbles[i]) {
+        // Line disappeared — remove bubble.
+        this.bubbles[i].remove();
+      }
+    }
+
+    if (newLen < oldLen) this.bubbles.splice(newLen);
+    this.plainLines = newPlain;
+    this.el.scrollTop = this.el.scrollHeight;
+  }
+
+  _makeBubble(plain, ansi) {
+    const d = document.createElement('div');
+    d.className = plain.trim() ? 'term-line' : 'term-line spacer';
+    d.innerHTML  = plain.trim() ? ansiToHtml(ansi) || '&nbsp;' : '&nbsp;';
+    return d;
+  }
+
+  // Show a right-aligned "sent" bubble for user input.
+  appendInput(text) {
+    const d = document.createElement('div');
+    d.className = 'term-line-input';
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const safe = text.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    d.innerHTML = `<span class="bubble-cmd">${safe}</span><span class="bubble-meta">${time} ✓</span>`;
+    this.el.appendChild(d);
+    this.el.scrollTop = this.el.scrollHeight;
+  }
+
+  // Render static ansi text (for archive view, not live).
+  renderStatic(ansi) {
+    this.clear();
+    if (!ansi) return;
+    const lines = ansi.split('\n');
+    for (const line of lines) {
+      const b = this._makeBubble(line, line);
+      this.el.appendChild(b);
+      this.bubbles.push(b);
+    }
+    this.plainLines = lines.map(l => l.replace(/\x1b\[[0-9;]*m/g, ''));
+  }
+
+  clear() {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    this.el.innerHTML = '';
+    this.plainLines = [];
+    this.bubbles = [];
+  }
+
+  showEmpty(msg) {
+    this.clear();
+    const d = document.createElement('div');
+    d.className = 'empty';
+    d.textContent = msg;
+    this.el.appendChild(d);
+  }
+}
+
+const termBubbles = new BubbleRenderer($("termBubbles"));
+const shBubbles   = new BubbleRenderer($("shBubbles"));
+const arcBubbles  = new BubbleRenderer($("arcBubbles"));
+
+
+// ===================== TERMINALS =====================
+let curTerm = null, termES = null;
+
+async function refreshTerminals() {
+  let list = [];
+  try { list = await api("/terminals"); } catch { return; }
+  const ul = $("x_list"); ul.innerHTML = "";
+  for (const t of list) {
+    const li = document.createElement("li");
+    if (t.id === curTerm) li.className = "active";
+    li.innerHTML = `<div class="head"><strong>${escapeHtml(t.id)}</strong><span class="badge ${t.status}">${t.status}</span></div>
+      <div class="meta">${escapeHtml(t.model || "default")} · ${escapeHtml(t.permission_mode)}</div>
+      <div class="meta">${escapeHtml(t.path)}</div>`;
+    li.onclick = () => selectTerminal(t.id);
+    ul.appendChild(li);
+  }
+}
+async function selectTerminal(id) {
+  curTerm = id;
+  termBubbles.clear();
+  const t = await api("/terminals/" + id);
+  setTermToolbar(t);
+  if (termES) termES.close();
+  // Render current snapshot (may already have content).
+  if (t.ansi) termBubbles._apply(t.text || '', t.ansi);
+  if (t.status === "on") openTerminalStream(id);
+  refreshTerminals();
+}
+function setTermToolbar(t) {
+  $("x_title").textContent = t.id;
+  $("x_status").innerHTML = `<span class="badge ${t.status}">${t.status}</span>`;
+  const on = t.status === "on";
+  $("x_on").disabled = on; $("x_off").disabled = !on; $("x_del").disabled = false;
+  $("x_send").disabled = !on; $("x_cmd").disabled = !on; $("x_esc").disabled = !on; $("x_ctrlc").disabled = !on;
+}
+function openTerminalStream(id) {
+  if (termES) termES.close();
+  termES = new EventSource(streamUrl(`/terminals/${id}/stream`));
+  termES.onmessage = (m) => {
+    try {
+      const d = JSON.parse(m.data);
+      if (d.screen !== undefined) termBubbles.update(d.screen, d.ansi);
+    } catch {}
+  };
+  termES.addEventListener("end", () => { termES.close(); selectTerminal(id); });
+}
+$("x_create").onclick = async () => {
+  if (!$("x_path").value) { alert("path is required"); return; }
+  try {
+    const t = await api("/terminals", { method: "POST", body: JSON.stringify({
+      path: $("x_path").value, model: $("x_model").value || null,
+      permission_mode: $("x_perm").value, skip_permissions: $("x_skip").checked, auto_accept: $("x_auto").checked }) });
+    await refreshTerminals(); selectTerminal(t.id);
+  } catch (e) { alert("Error: " + e.message); }
+};
+$("x_on").onclick = async () => { if (!curTerm) return;
+  await api(`/terminals/${curTerm}/on`, { method: "POST" }).catch(e => alert(e.message)); selectTerminal(curTerm); };
+$("x_off").onclick = async () => { if (!curTerm) return;
+  await api(`/terminals/${curTerm}/off`, { method: "POST" }).catch(() => {}); selectTerminal(curTerm); };
+$("x_del").onclick = async () => { if (!curTerm) return;
+  if (!confirm("Turn off and delete this terminal?")) return;
+  await api(`/terminals/${curTerm}`, { method: "DELETE" }).catch(() => {});
+  if (termES) termES.close(); curTerm = null;
+  termBubbles.showEmpty("Terminal deleted.");
+  $("x_title").textContent = "No terminal"; $("x_status").textContent = "";
+  ["x_on","x_off","x_del","x_send","x_cmd","x_esc","x_ctrlc"].forEach(i => $(i).disabled = true);
+  refreshTerminals();
+};
+function termInput(data, submit) {
+  if (!curTerm) return;
+  if (submit && data.trim()) termBubbles.appendInput(data.trim());
+  api(`/terminals/${curTerm}/input`, { method: "POST", body: JSON.stringify({ data, submit }) }).catch(() => {});
+}
+$("x_send").onclick = () => { const v = $("x_cmd").value; $("x_cmd").value = ""; termInput(v, true); };
+$("x_cmd").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("x_send").click(); } });
+$("x_esc").onclick = () => termInput("\x1b", false);
+$("x_ctrlc").onclick = () => termInput("\x03", false);
+
+
+// ===================== SHELL =====================
+let curShell = null, shES = null;
+
+async function refreshShells() {
+  let list = [];
+  try { list = await api("/shells"); } catch { return; }
+  const ul = $("h_list"); ul.innerHTML = "";
+  for (const t of list) {
+    const li = document.createElement("li");
+    if (t.id === curShell) li.className = "active";
+    li.innerHTML = `<div class="head"><strong>${escapeHtml(t.id)}</strong><span class="badge ${t.status}">${t.status}</span></div>
+      <div class="meta">${escapeHtml((t.command || []).join(" ") || "shell")}</div>
+      <div class="meta">${escapeHtml(t.path)}</div>`;
+    li.onclick = () => selectShell(t.id);
+    ul.appendChild(li);
+  }
+}
+async function selectShell(id) {
+  curShell = id;
+  shBubbles.clear();
+  const t = await api("/shells/" + id);
+  setShellToolbar(t);
+  if (shES) shES.close();
+  if (t.ansi) shBubbles._apply(t.text || '', t.ansi);
+  if (t.status === "on") openShellStream(id);
+  refreshShells();
+}
+function setShellToolbar(t) {
+  $("h_title").textContent = t.id;
+  $("h_status").innerHTML = `<span class="badge ${t.status}">${t.status}</span>`;
+  const on = t.status === "on";
+  $("h_on").disabled = on; $("h_off").disabled = !on; $("h_del").disabled = false;
+  $("h_send").disabled = !on; $("h_cmd").disabled = !on; $("h_esc").disabled = !on; $("h_ctrlc").disabled = !on;
+}
+function openShellStream(id) {
+  if (shES) shES.close();
+  shES = new EventSource(streamUrl(`/shells/${id}/stream`));
+  shES.onmessage = (m) => {
+    try {
+      const d = JSON.parse(m.data);
+      if (d.screen !== undefined) shBubbles.update(d.screen, d.ansi);
+    } catch {}
+  };
+  shES.addEventListener("end", () => { shES.close(); selectShell(id); });
+}
+$("h_create").onclick = async () => {
+  if (!$("h_path").value) { alert("path is required"); return; }
+  const raw = $("h_cmd_init").value.trim();
+  try {
+    const t = await api("/shells", { method: "POST", body: JSON.stringify({
+      path: $("h_path").value, command: raw ? raw.split(/\s+/) : [] }) });
+    $("h_cmd_init").value = ""; await refreshShells(); selectShell(t.id);
+  } catch (e) { alert("Error: " + e.message); }
+};
+$("h_on").onclick = async () => { if (!curShell) return;
+  await api(`/shells/${curShell}/on`, { method: "POST" }).catch(e => alert(e.message)); selectShell(curShell); };
+$("h_off").onclick = async () => { if (!curShell) return;
+  await api(`/shells/${curShell}/off`, { method: "POST" }).catch(() => {}); selectShell(curShell); };
+$("h_del").onclick = async () => { if (!curShell) return;
+  if (!confirm("Turn off and delete this shell?")) return;
+  await api(`/shells/${curShell}`, { method: "DELETE" }).catch(() => {});
+  if (shES) shES.close(); curShell = null;
+  shBubbles.showEmpty("Shell deleted.");
+  $("h_title").textContent = "No shell"; $("h_status").textContent = "";
+  ["h_on","h_off","h_del","h_send","h_cmd","h_esc","h_ctrlc"].forEach(i => $(i).disabled = true);
+  refreshShells();
+};
+function shellInput(data, submit) {
+  if (!curShell) return;
+  if (submit && data.trim()) shBubbles.appendInput(data.trim());
+  api(`/shells/${curShell}/input`, { method: "POST", body: JSON.stringify({ data, submit }) }).catch(() => {});
+}
+$("h_send").onclick = () => { const v = $("h_cmd").value; $("h_cmd").value = ""; shellInput(v, true); };
+$("h_cmd").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("h_send").click(); } });
+$("h_esc").onclick = () => shellInput("\x1b", false);
+$("h_ctrlc").onclick = () => shellInput("\x03", false);
+
+
+// ===================== ARCHIVE =====================
+let curArcSession = null;
+
+async function loadArchive() {
+  // Check if DB is enabled.
+  try {
+    const st = await api("/archive/status");
+    $("arc_db_status").innerHTML = st.enabled
+      ? ''
+      : '<div class="arc-no-db">Archive DB not configured — set COMMANDER_DB_URL to enable PostgreSQL persistence.</div>';
+  } catch {}
+
+  let sessions = [];
+  try { sessions = await api("/archive"); } catch { return; }
+  const ul = $("arc_list");
+  ul.innerHTML = "";
+
+  if (!sessions.length) {
+    ul.innerHTML = '<li style="color:var(--muted);font-size:12px;border:none;background:none">No archived sessions yet.</li>';
+    return;
+  }
+
+  for (const s of sessions) {
+    const li = document.createElement("li");
+    li.dataset.sid = s.id;
+    if (s.id === curArcSession) li.className = "active";
+    const typeClass = s.type === "terminal" ? "arc-badge-terminal" : "arc-badge-shell";
+    const when = s.ended_at
+      ? new Date(s.ended_at * 1000).toLocaleString()
+      : new Date(s.created_at * 1000).toLocaleString();
+    const dur = s.ended_at && s.created_at
+      ? `${Math.round(s.ended_at - s.created_at)}s`
+      : 'running';
+    li.innerHTML = `
+      <div class="head">
+        <span class="badge ${typeClass}">${s.type}</span>
+        <span class="badge ${s.status === 'off' ? 'arc-badge-off' : 'on'}">${s.status}</span>
+      </div>
+      <div class="meta" style="margin-top:3px">${escapeHtml(s.path)}</div>
+      <div class="meta">${when} · ${dur}</div>
+    `;
+    li.onclick = () => openArchivedSession(s.id);
+    ul.appendChild(li);
+  }
+}
+
+async function openArchivedSession(id) {
+  curArcSession = id;
+  arcBubbles.showEmpty("Loading…");
+  document.querySelectorAll("#arc_list li").forEach(li => {
+    li.classList.toggle("active", li.dataset.sid === id);
+  });
+
+  let s;
+  try { s = await api("/archive/" + id); }
+  catch (e) { arcBubbles.showEmpty("Failed to load: " + e.message); return; }
+
+  // Toolbar
+  $("arc_title").textContent = `${s.type} · ${s.id}`;
+  const when = s.created_at ? new Date(s.created_at * 1000).toLocaleString() : '';
+  $("arc_meta").textContent = `${escapeHtml(s.path)} · ${when}`;
+  $("arc_exit").textContent = s.exit_code != null ? `exit ${s.exit_code}` : '';
+
+  // Render final screen state as static bubbles.
+  if (s.final_ansi) {
+    arcBubbles.renderStatic(s.final_ansi);
+  } else if (s.final_screen) {
+    arcBubbles.renderStatic(s.final_screen);
+  } else {
+    arcBubbles.showEmpty("No output saved for this session.");
+  }
+
+  // Re-highlight active item in list.
+  document.querySelectorAll("#arc_list li").forEach(li => {
+    li.classList.toggle("active", li.dataset.sid === id);
+  });
+}
+
+
+// ---- boot ------------------------------------------------------------------
+checkHealth();
+refreshTasks(); refreshSessions(); refreshTerminals(); refreshShells();
+setInterval(() => { refreshTasks(); refreshSessions(); refreshTerminals(); refreshShells(); }, 4000);
+setInterval(checkHealth, 15000);
+</script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+basePath: /
+definitions:
+  model.CreateProjectRequest:
+    properties:
+      color:
+        example: '#6750A4'
+        type: string
+      description:
+        example: A short description
+        type: string
+      name:
+        example: My Project
+        maxLength: 100
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+  model.Project:
+    properties:
+      color:
+        example: '#6750A4'
+        type: string
+      created_at:
+        type: string
+      description:
+        example: A short description
+        type: string
+      id:
+        example: 1
+        type: integer
+      name:
+        example: My Project
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.UpdateProjectRequest:
+    properties:
+      color:
+        example: '#FF6B6B'
+        type: string
+      description:
+        example: Updated description
+        type: string
+      name:
+        example: Updated Name
+        maxLength: 100
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+host: 127.0.0.1:8090
+info:
+  contact:
+    name: Tafakori Tech
+  description: Manages projects for the Commander app.
+  title: Marshal API
+  version: "1.0"
+paths:
+  /api/v1/projects:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Project'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List all projects
+      tags:
+      - projects
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Project data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Project'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create a project
+      tags:
+      - projects
+  /api/v1/projects/{id}:
+    delete:
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a project
+      tags:
+      - projects
+    get:
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Project'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Get a project by ID
+      tags:
+      - projects
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated project data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Project'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Update a project
+      tags:
+      - projects
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
+swagger: "2.0"

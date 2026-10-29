@@ -1,0 +1,78 @@
+{
+  "index_patterns": ["tafakoritech-logs-*"],
+  "priority": 100,
+  "_meta": {
+    "description": "TafakoriTech microservices structured log template"
+  },
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.lifecycle.name": "tafakoritech-logs-policy",
+      "index.lifecycle.rollover_alias": "tafakoritech-logs",
+      "index.refresh_interval": "10s",
+      "index.codec": "best_compression",
+      "index.mapping.total_fields.limit": 500
+    },
+    "mappings": {
+      "dynamic": false,
+      "_source": { "enabled": true },
+      "properties": {
+
+        "@timestamp":   { "type": "date" },
+        "timestamp":    { "type": "date", "format": "strict_date_time||strict_date_time_no_millis||epoch_millis" },
+
+        "level":        { "type": "keyword" },
+        "service":      { "type": "keyword" },
+        "message":      { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 512 } } },
+
+        "trace_id":     { "type": "keyword" },
+        "request_id":   { "type": "keyword" },
+        "user_id":      { "type": "keyword" },
+
+        "method":       { "type": "keyword" },
+        "path":         { "type": "keyword" },
+        "status_code":  { "type": "integer" },
+        "duration_ms":  { "type": "float" },
+        "ip":           { "type": "ip" },
+        "user_agent":   { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+
+        "error":        { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 1024 } } },
+        "stacktrace":   { "type": "text" },
+        "caller":       { "type": "keyword" },
+
+        "swarm_hostname": { "type": "keyword" },
+        "swarm_node_id":  { "type": "keyword" },
+        "container_id":   { "type": "keyword" },
+        "stream":         { "type": "keyword" },
+
+        "log_type":     { "type": "keyword" },
+
+        "event":        { "type": "keyword" },
+        "result":       { "type": "keyword" },
+
+        "actor": {
+          "type": "object",
+          "properties": {
+            "user_id": { "type": "keyword" },
+            "type":    { "type": "keyword" }
+          }
+        },
+
+        "context": {
+          "type": "object",
+          "properties": {
+            "ip":         { "type": "ip" },
+            "user_agent": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+            "device_id":  { "type": "keyword" }
+          }
+        },
+
+        "meta": {
+          "type": "object",
+          "dynamic": true
+        }
+      }
+    }
+  }
+}
